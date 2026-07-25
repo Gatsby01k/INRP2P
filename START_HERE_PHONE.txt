@@ -1,0 +1,25 @@
+TAKKAR — TELEGRAM MINI APP RELEASE V2
+
+ВАЖНО: НЕ ОТКРЫВАЙ index.html ИЗ «ФАЙЛОВ» НА IPHONE.
+Telegram Mini App является HTTPS-сайтом внутри Telegram. Локальный HTML на iPhone не является Mini App.
+
+ЧТО ЗАПУСКАТЬ
+1. Загрузить ВЕСЬ этот проект в GitHub-репозиторий.
+2. В Render создать New > Blueprint и выбрать репозиторий.
+3. Добавить TELEGRAM_BOT_TOKEN и ALLOWED_ORIGIN=https://<выданный Render домен>.
+4. После Deploy открыть https://<домен>/health — должно показать {"ok":true,...}.
+5. В BotFather: /mybots > бот > Bot Settings > Configure Mini App > Enable Mini App > указать HTTPS-домен.
+6. Menu Button > PLAY TAKKAR > тот же HTTPS-домен.
+
+БЫСТРАЯ ПРОВЕРКА НА ПК
+Node.js 20+
+  npm run dev
+Открыть http://localhost:3000
+
+ЭТОТ BUILD
+- работает как mobile-first Telegram Mini App;
+- имеет автономный demo fallback;
+- имеет authoritative demo server и проверку Telegram initData;
+- использует demo credits, не настоящие деньги.
+
+Для реальных денег смотри docs/REAL_MONEY_PRODUCTION.md.

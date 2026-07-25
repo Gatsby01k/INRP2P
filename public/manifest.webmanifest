@@ -1,0 +1,13 @@
+{
+  "name": "TAKKAR — The Impact Game",
+  "short_name": "TAKKAR",
+  "description": "Launch a heavy wheel. Survive every impact. Cash out before the next takkar destroys it.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#07090d",
+  "theme_color": "#07090d",
+  "icons": [
+    {"src":"assets/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

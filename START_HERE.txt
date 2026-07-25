@@ -1,0 +1,14 @@
+TAKKAR — START HERE
+
+1. The Mini App must be published at an HTTPS URL. It will not work correctly when opened as a local HTML file from iPhone Files.
+2. For the complete authoritative demo server, deploy the whole folder with Docker on Render or Fly.io.
+3. For a visual-only static preview, upload deploy-single-file/index.html to any HTTPS static host.
+4. Read README_RU.md for exact Telegram BotFather and deployment steps.
+5. original release preview asset and icon-512.png are ready for the bot profile.
+
+Run locally on a computer:
+  npm start
+  open http://localhost:3000
+
+Automated verification:
+  npm test

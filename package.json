@@ -1,48 +1,15 @@
 {
-  "name": "inrp2p",
+  "name": "takkar-telegram-mini-app",
   "version": "1.0.0",
   "private": true,
-  "description": "INRP2P — private INR liquidity network. Manual review, matching and qualified introductions. No custody or execution of deal funds.",
+  "type": "module",
+  "description": "TAKKAR — mobile-first Telegram Mini App vertical slice with an authoritative demo server.",
   "scripts": {
-    "dev": "next dev",
-    "postinstall": "prisma generate && node scripts/database-release.mjs",
-    "build": "prisma generate && node scripts/database-production-release.mjs && next build",
-    "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/**/*.test.ts",
-    "check": "npm run db:validate && npm run lint && npm run typecheck && npm test && npm run build",
-    "db:validate": "prisma validate",
-    "db:generate": "prisma generate",
-    "db:deploy": "prisma migrate deploy",
-    "db:push": "prisma db push",
-    "db:seed": "prisma db seed",
-    "db:seed:demo": "tsx prisma/seed-demo.ts"
+    "start": "node server/server.mjs",
+    "dev": "NODE_ENV=development DEMO_AUTH=true node server/server.mjs",
+    "bot:setup": "node bot/setup-menu.mjs",
+    "check": "node --check public/game.js && node --check server/server.mjs && node --check bot/setup-menu.mjs",
+    "test": "node scripts/smoke.mjs"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
-  "dependencies": {
-    "@prisma/client": "6.7.0",
-    "bcryptjs": "2.4.3",
-    "next": "^15.3.1",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "zod": "3.24.2"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3.3.1",
-    "@types/bcryptjs": "2.4.6",
-    "@types/node": "^20.17.30",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.25.0",
-    "eslint-config-next": "^15.3.1",
-    "postcss": "^8.5.3",
-    "prisma": "6.7.0",
-    "tailwindcss": "^3.4.17",
-    "tsx": "^4.19.3",
-    "typescript": "^5.8.3"
-  }
+  "engines": { "node": ">=20" }
 }
