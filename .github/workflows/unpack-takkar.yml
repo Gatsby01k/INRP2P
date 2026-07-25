@@ -1,0 +1,43 @@
+name: Publish TAKKAR source
+
+on:
+  push:
+    branches:
+      - codex/takkar-telegram-miniapp
+    paths:
+      - UNPACK_NOW
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: codex/takkar-telegram-miniapp
+          fetch-depth: 0
+
+      - name: Rebuild and unpack source bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .takkar-bundle/part-* | tr -d '\n' | base64 --decode > /tmp/takkar-source.zip
+          rm -rf /tmp/takkar-source
+          mkdir -p /tmp/takkar-source
+          unzip -q /tmp/takkar-source.zip -d /tmp/takkar-source
+          git rm -r --ignore-unmatch .
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/takkar-source/. .
+
+      - name: Commit deployable TAKKAR project
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: publish TAKKAR Telegram Mini App source"
+          git push origin HEAD:codex/takkar-telegram-miniapp
