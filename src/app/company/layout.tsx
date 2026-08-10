@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { requireVerifiedRole } from "@/lib/auth";
+import { isTrainingAccountEmail } from "@/lib/training";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -10,11 +11,16 @@ export default async function CompanyLayout({
   children: React.ReactNode;
 }) {
   const user = await requireVerifiedRole("COMPANY");
+  const isTraining = isTrainingAccountEmail(user.email);
   return (
     <WorkspaceShell
       badge="Company"
       badgeTone="sky"
-      userLine={user.email}
+      userLine={isTraining ? "Training account" : user.email}
+      environmentBanner={isTraining ? {
+        label: "Training Mode",
+        body: "Simulated identities, orders and outcomes. No real customer data, funds or external transfers.",
+      } : undefined}
       nav={[
         { href: "/company", label: "My requests", exact: true },
         { href: "/company/new-request", label: "New request" },

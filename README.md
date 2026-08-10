@@ -59,6 +59,51 @@ Do not run the demo seed against production. For an isolated staging database:
 DEMO_PASSWORD='a-unique-staging-password' npm run db:seed:demo
 ```
 
+## Training Mode for walkthroughs
+
+Training Mode provides one deterministic trader journey for onboarding, sales
+walkthroughs and screen recording. It is not public traction and does not represent
+historical customer activity. The scenario engine uses reserved `@inrp2p.demo`
+identities and rebuilds the same known state every time.
+
+Create a separate Vercel project with a separate staging PostgreSQL database. Never
+enable Training Mode on the production deployment or point it at the production
+database. Configure a non-production `PROCESSING_DATA_KEY`, then set:
+
+```bash
+TRAINING_MODE_ENABLED=true
+TRAINING_PARTNER_EMAIL=video-trader@inrp2p.demo
+TRAINING_PARTNER_PASSWORD='a-unique-14-character-password'
+TRAINING_SCENARIO=HISTORY
+```
+
+Deploy the database migrations and prepare the account:
+
+```bash
+npm run db:deploy
+npm run db:seed:training
+```
+
+An operator can then open `/admin/training` and reset the account to one of five
+recording states: new trader, verification in progress, ready to activate, live desk
+ready or established desk. The partner signs in with `TRAINING_PARTNER_EMAIL` and the
+configured password. The company-side simulator uses `video-merchant@inrp2p.demo`
+with the same password when a merchant perspective is needed.
+
+Training safeguards are enforced in application code:
+
+- a persistent Training Mode banner is shown in partner and company workspaces;
+- no destination wallet is issued and no blockchain transfer can be submitted;
+- real payment-rail entry is blocked for the training trader;
+- Telegram, WhatsApp, password-reset email and live dispute alerts are suppressed;
+- simulated reserve entries are excluded from the production deposit dashboard;
+- scenarios, orders, events and commissions are deterministic and resettable.
+
+Keep the banner visible in published material. Describe displayed income as
+“simulated commission in Training Mode”, never as real trader earnings. Use only
+synthetic names, UTRs, bank details and documents, and reset the scenario before each
+recording session.
+
 ## Quality gate
 
 ```bash
@@ -107,6 +152,7 @@ The minimum launch configuration is:
   beneficiary data. Back up this key in the production secret manager; never rotate it
   without a planned data re-encryption migration.
 - Real operator credentials stored in a password manager, not in source control.
+- `TRAINING_MODE_ENABLED=false` with no `@inrp2p.demo` identities in the production database.
 
 See `.env.example` for every supported integration and [DEPLOYMENT.md](DEPLOYMENT.md)
 for the release runbook.

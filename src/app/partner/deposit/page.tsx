@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createPartnerDeposit, submitPartnerDepositTransaction } from "@/app/actions/deposits";
 import { SubmitButton } from "@/components/submit-button";
+import { TrainingReserveWorkflow } from "@/components/training/training-reserve-workflow";
 import { Field, PageHeader, StatusBadge } from "@/components/ui";
 import { CopyWalletAddress } from "@/components/workspace/copy-wallet-address";
 import { Flash } from "@/components/workspace/flash";
@@ -14,6 +15,7 @@ import { db } from "@/lib/db";
 import { logError } from "@/lib/error-log";
 import { fmtDateTime } from "@/lib/format";
 import { PARTNER_PROGRAM_LEVELS, partnerProgramLevel } from "@/lib/partner-program";
+import { isTrainingAccountEmail } from "@/lib/training";
 
 export const metadata: Metadata = { title: "Activate order desk" };
 export const dynamic = "force-dynamic";
@@ -88,6 +90,7 @@ export default async function PartnerDepositPage({
   const [user, flash] = await Promise.all([requireRole("PARTNER"), searchParams]);
   if (!user.partner) redirect("/login");
   const selectedLevel = partnerProgramLevel(flash.plan ?? user.partner.programLevel);
+  const training = isTrainingAccountEmail(user.email);
   const sourceOrder = /^PX-(?:IN|OUT)-\d{4,8}$/.test(flash.order ?? "") ? flash.order : null;
 
   let deposits: PartnerDeposit[] = [];
@@ -98,6 +101,17 @@ export default async function PartnerDepositPage({
   } catch (error) {
     ledgerUnavailable = true;
     await logError({ error, source: "page:/partner/deposit", severity: "FATAL", userId: user.id, url: "/partner/deposit" });
+  }
+
+  if (training) {
+    return (
+      <TrainingReserveWorkflow
+        selectedLevel={selectedLevel}
+        deposits={deposits}
+        notice={flash.notice}
+        error={flash.error}
+      />
+    );
   }
 
   const confirmed = deposits.filter((item) => item.status === "CONFIRMED");

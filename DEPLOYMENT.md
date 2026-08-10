@@ -87,6 +87,19 @@ Deploy the immutable release, then verify:
 Do this first in staging with synthetic identities and files. Never use demo data as
 public evidence of traction.
 
+### Optional isolated Training Mode deployment
+
+For recorded walkthroughs, create a third deployment with its own PostgreSQL database.
+Set `TRAINING_MODE_ENABLED=true`, a strong `TRAINING_PARTNER_PASSWORD`, the reserved
+`video-trader@inrp2p.demo` identity and a non-production `PROCESSING_DATA_KEY`. Run
+`npm run db:deploy`, then `npm run db:seed:training`. Operators control the recording
+state at `/admin/training`.
+
+Do not reuse production database URLs, wallet configuration, messaging recipients,
+evidence storage or customer records. Keep the visible Training Mode banner in every
+recording and describe displayed commission as simulated. Production must always have
+`TRAINING_MODE_ENABLED=false`.
+
 ## 6. Schedule maintenance and monitoring
 
 Call `/api/cron/watchdogs` on a schedule with:

@@ -33,6 +33,30 @@ test("pay-in and pay-out validate different counterparty data", () => {
   assert.equal(processingOrderSchema.safeParse({ ...base, type: "PAY_OUT", payerName: "", beneficiaryName: "Beneficiary", upiId: "" }).success, false);
 });
 
+test("processing orders respect normal payment-rail amount guardrails", () => {
+  const payIn = {
+    externalReference: "ORDER-LIMIT",
+    type: "PAY_IN",
+    expiryMinutes: "30",
+    payerName: "Test Payer",
+    payerReference: "",
+    beneficiaryName: "",
+    upiId: "",
+    bankName: "",
+    accountNumber: "",
+    ifsc: "",
+    companyNote: "",
+  };
+
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "UPI", amountInr: "100000" }).success, true);
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "UPI", amountInr: "100001" }).success, false);
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "IMPS", amountInr: "500000" }).success, true);
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "IMPS", amountInr: "500001" }).success, false);
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "RTGS", amountInr: "199999" }).success, false);
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "RTGS", amountInr: "200000" }).success, true);
+  assert.equal(processingOrderSchema.safeParse({ ...payIn, requestedRail: "NEFT", amountInr: "750000" }).success, true);
+});
+
 test("masked destinations do not expose full bank or UPI identifiers", () => {
   assert.equal(maskDestination("123456789012"), "••••••••9012");
   assert.equal(maskDestination("merchant@upi"), "me••••••@upi");

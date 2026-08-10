@@ -3,6 +3,7 @@ import { AiCopilot } from "@/components/workspace/ai-copilot";
 import { CommandPalette } from "@/components/workspace/command-palette";
 import { WorkspaceShell } from "@/components/workspace/shell";
 import { requireRole } from "@/lib/auth";
+import { isTrainingModeEnabled } from "@/lib/training";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -36,6 +37,7 @@ export default async function AdminLayout({
           { href: "/admin/audit", label: "Audit log" },
           { href: "/admin/errors", label: "Errors" },
           { href: "/admin/security", label: "Security" },
+          ...(isTrainingModeEnabled() ? [{ href: "/admin/training", label: "Training Studio" }] : []),
         ]}
       >
         {children}

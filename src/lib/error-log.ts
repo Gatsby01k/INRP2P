@@ -11,6 +11,7 @@
 
 import { db } from "@/lib/db";
 import { sendTelegramAlert } from "@/lib/telegram";
+import { isTrainingAccountEmail, isTrainingModeEnabled } from "@/lib/training";
 import { Prisma, type ErrorSeverity } from "@prisma/client";
 
 export type LogErrorInput = {
@@ -67,7 +68,13 @@ export async function logError(input: LogErrorInput): Promise<void> {
     console.error("logError: failed to write ErrorLog row", dbErr);
   }
 
-  if (severity !== "WARNING") {
+  const isTrainingUser = isTrainingModeEnabled() && input.userId
+    ? Boolean(await db.user.findUnique({ where: { id: input.userId }, select: { email: true } })
+        .then((user) => isTrainingAccountEmail(user?.email))
+        .catch(() => false))
+    : false;
+
+  if (severity !== "WARNING" && !isTrainingUser) {
     const tag = severity === "FATAL" ? "🔴 FATAL" : "🟠 ERROR";
     await sendTelegramAlert(
       `${tag} — ${input.source}\n${message}${input.url ? `\n${input.url}` : ""}`,

@@ -34,6 +34,7 @@ export default async function AdminDepositsPage({
   const query = await searchParams;
   const status = (STATUSES as readonly string[]).includes(query.status ?? "") ? query.status as DepositStatus : undefined;
   const where: Prisma.PartnerDepositWhereInput = {
+    provider: { not: "TRAINING_SIMULATOR" },
     ...(status ? { status } : {}),
     ...(query.q ? { OR: [
       { reference: { contains: query.q, mode: "insensitive" } },
@@ -52,8 +53,8 @@ export default async function AdminDepositsPage({
     await ensurePartnerDepositLedger();
     [deposits, allConfirmed, pendingCount] = await Promise.all([
       db.partnerDeposit.findMany({ where, include: { partner: true }, orderBy: { createdAt: "desc" }, take: 200 }),
-      db.partnerDeposit.findMany({ where: { status: "CONFIRMED" }, select: { amount: true, actualAmount: true } }),
-      db.partnerDeposit.count({ where: { status: { in: ["AWAITING_PAYMENT", "CONFIRMING"] } } }),
+      db.partnerDeposit.findMany({ where: { status: "CONFIRMED", provider: { not: "TRAINING_SIMULATOR" } }, select: { amount: true, actualAmount: true } }),
+      db.partnerDeposit.count({ where: { status: { in: ["AWAITING_PAYMENT", "CONFIRMING"] }, provider: { not: "TRAINING_SIMULATOR" } } }),
     ]);
   } catch (error) {
     ledgerUnavailable = true;

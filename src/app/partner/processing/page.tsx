@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { claimProcessingOrder, createPaymentRail, partnerDisputeSettlement, updatePaymentRailStatus } from "@/app/actions/processing";
 import { PartnerOrderPreview } from "@/components/processing/partner-order-preview";
+import { OrderExpiry } from "@/components/processing/order-expiry";
 import { SubmitButton } from "@/components/submit-button";
 import { EmptyState, Field, PageHeader, Stat, StatusBadge } from "@/components/ui";
 import { Flash } from "@/components/workspace/flash";
@@ -10,6 +11,7 @@ import { requireVerifiedRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logError } from "@/lib/error-log";
 import { fmtDateTime } from "@/lib/format";
+import { indiaPerformancePeriods } from "@/lib/partner-performance";
 import { partnerProgramLevel } from "@/lib/partner-program";
 import { bpsLabel, inr, paymentRailLabel, processingTypeLabel } from "@/lib/processing";
 
@@ -108,12 +110,11 @@ export default async function PartnerProcessingPage({
   }
 
   const now = new Date();
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const { todayStart } = indiaPerformancePeriods(now);
 
   let desk: Awaited<ReturnType<typeof loadPartnerProcessingDesk>>;
   try {
-    desk = await loadPartnerProcessingDesk(user.partner.id, now, today);
+    desk = await loadPartnerProcessingDesk(user.partner.id, now, todayStart);
   } catch (cause) {
     await logError({
       error: cause,
@@ -194,7 +195,11 @@ export default async function PartnerProcessingPage({
               <div><div className="flex flex-wrap items-center gap-2"><span className="font-mono text-xs font-semibold text-gold-700">{order.reference}</span><span className={order.type === "PAY_IN" ? "chip border-sky-200 bg-sky-50 text-sky-700" : "chip border-leaf-200 bg-leaf-50 text-leaf-700"}>{processingTypeLabel(order.type)}</span></div><p className="mt-1 text-[11px] text-slate-400">Merchant identity opens after assignment</p></div>
               <div><p className="text-[10px] uppercase tracking-[0.08em] text-slate-400">Amount</p><p className="mt-1 font-semibold tabular-nums text-slate-900">{inr(order.amountInr)}</p></div>
               <div><p className="text-[10px] uppercase tracking-[0.08em] text-slate-400">Rail</p><p className="mt-1 text-sm text-slate-700">{paymentRailLabel(order.requestedRail)}</p></div>
-              <div><p className="text-[10px] uppercase tracking-[0.08em] text-slate-400">Expires</p><p className="mt-1 text-xs text-slate-600">{fmtDateTime(order.expiresAt)}</p></div>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.08em] text-slate-400">Offer hold</p>
+                <p className="mt-1"><OrderExpiry expiresAt={order.expiresAt.toISOString()} initialSeconds={Math.max(0, Math.ceil((order.expiresAt.getTime() - now.getTime()) / 1_000))} /></p>
+                <p className="mt-0.5 text-[8px] text-slate-400">until {fmtDateTime(order.expiresAt)}</p>
+              </div>
               <form action={claimProcessingOrder} className="flex min-w-0 gap-2">
                 <input type="hidden" name="orderId" value={order.id} />
                 {order.type === "PAY_IN" ? <select className="input h-9 min-w-0 flex-1 py-0 text-xs" name="railId" required defaultValue=""><option value="" disabled>Select rail</option>{matchingRails.map((rail) => <option key={rail.id} value={rail.id}>{rail.label} · {rail.maskedDestination}</option>)}</select> : null}

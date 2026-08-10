@@ -22,6 +22,7 @@ import { matchBackupCode, verifyTotp } from "@/lib/totp";
 import { issueEmailVerification, issuePasswordReset } from "@/lib/email";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { hashOpaqueToken } from "@/lib/secure-token";
+import { isTrainingAccountEmail, isTrainingModeEnabled } from "@/lib/training";
 
 function safeNext(next: FormDataEntryValue | null): string | null {
   return typeof next === "string" && next.startsWith("/") && !next.startsWith("//") ? next : null;
@@ -35,6 +36,10 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
   if (!parsed.success) return { error: "Enter a valid email and password." };
 
   const user = await db.user.findUnique({ where: { email: parsed.data.email } });
+
+  if (user && isTrainingAccountEmail(user.email) && !isTrainingModeEnabled()) {
+    return { error: "Training workspace access is disabled on this deployment." };
+  }
 
   // Checked before the password compare so a locked account never leaks
   // "yes, that password was actually wrong" while it's locked.
@@ -121,6 +126,7 @@ function strongPassword(password: string) {
 export async function requestPasswordReset(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email." };
+  if (isTrainingAccountEmail(email)) return { ok: true };
   if (!(await consumeRateLimit("password-reset", email, 3, 60 * 60 * 1000))) return { ok: true };
   const user = await db.user.findUnique({ where: { email }, select: { id: true, email: true } });
   if (user) await issuePasswordReset(user.id, user.email).catch(() => false);

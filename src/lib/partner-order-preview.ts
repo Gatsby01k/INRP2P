@@ -9,25 +9,36 @@ export type PartnerPreviewOrder = {
   freshTicks: number;
 };
 
+export const PARTNER_PREVIEW_RAIL_NOTES: Record<PartnerPreviewOrder["rail"], string> = {
+  UPI: "Instant · normal cap ₹1 lakh",
+  IMPS: "Instant · up to ₹5 lakh",
+  NEFT: "Bank transfer · larger tickets",
+  RTGS: "Large value · ₹2 lakh minimum",
+};
+
 type PreviewOrderScenario = Pick<PartnerPreviewOrder, "flow" | "rail" | "amountInr"> & {
   holdSeconds: number;
 };
 
-// Curated preview tickets keep each amount inside the published scheme-level
-// rail limits. Actual bank and merchant limits can be lower.
+// Curated preview tickets follow the normal NPCI/RBI rail guardrails and use
+// common Indian ticket increments. Actual bank and merchant limits can be lower.
 export const PARTNER_PREVIEW_SCENARIOS: readonly PreviewOrderScenario[] = [
-  { flow: "Pay-in", rail: "UPI", amountInr: 8_750, holdSeconds: 58 },
-  { flow: "Pay-out", rail: "UPI", amountInr: 18_400, holdSeconds: 64 },
-  { flow: "Pay-in", rail: "UPI", amountInr: 32_650, holdSeconds: 72 },
-  { flow: "Pay-out", rail: "IMPS", amountInr: 54_900, holdSeconds: 80 },
-  { flow: "Pay-in", rail: "IMPS", amountInr: 76_500, holdSeconds: 86 },
-  { flow: "Pay-out", rail: "UPI", amountInr: 12_250, holdSeconds: 62 },
-  { flow: "Pay-in", rail: "IMPS", amountInr: 108_400, holdSeconds: 88 },
-  { flow: "Pay-out", rail: "IMPS", amountInr: 146_750, holdSeconds: 94 },
-  { flow: "Pay-in", rail: "NEFT", amountInr: 182_500, holdSeconds: 102 },
-  { flow: "Pay-out", rail: "RTGS", amountInr: 275_000, holdSeconds: 110 },
-  { flow: "Pay-in", rail: "RTGS", amountInr: 360_000, holdSeconds: 118 },
-  { flow: "Pay-out", rail: "NEFT", amountInr: 425_000, holdSeconds: 124 },
+  { flow: "Pay-in", rail: "UPI", amountInr: 5_000, holdSeconds: 58 },
+  { flow: "Pay-out", rail: "UPI", amountInr: 12_500, holdSeconds: 64 },
+  { flow: "Pay-in", rail: "IMPS", amountInr: 48_000, holdSeconds: 72 },
+  { flow: "Pay-out", rail: "NEFT", amountInr: 165_000, holdSeconds: 80 },
+  { flow: "Pay-in", rail: "RTGS", amountInr: 250_000, holdSeconds: 86 },
+  { flow: "Pay-out", rail: "UPI", amountInr: 27_500, holdSeconds: 62 },
+  { flow: "Pay-in", rail: "UPI", amountInr: 49_000, holdSeconds: 76 },
+  { flow: "Pay-out", rail: "IMPS", amountInr: 85_000, holdSeconds: 88 },
+  { flow: "Pay-in", rail: "IMPS", amountInr: 125_000, holdSeconds: 94 },
+  { flow: "Pay-out", rail: "NEFT", amountInr: 285_000, holdSeconds: 102 },
+  { flow: "Pay-in", rail: "RTGS", amountInr: 375_000, holdSeconds: 110 },
+  { flow: "Pay-out", rail: "IMPS", amountInr: 495_000, holdSeconds: 118 },
+  { flow: "Pay-in", rail: "NEFT", amountInr: 550_000, holdSeconds: 124 },
+  { flow: "Pay-out", rail: "RTGS", amountInr: 750_000, holdSeconds: 132 },
+  { flow: "Pay-in", rail: "NEFT", amountInr: 925_000, holdSeconds: 140 },
+  { flow: "Pay-out", rail: "RTGS", amountInr: 1_250_000, holdSeconds: 148 },
 ] as const;
 
 const INITIAL_EXPIRIES = [14, 29, 43, 58, 74] as const;
