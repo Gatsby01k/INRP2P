@@ -5,6 +5,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import type { Role } from "@prisma/client";
 import { db } from "./db";
+import { isTrainingAccountEmail, isTrainingModeEnabled } from "./training";
 
 export const SESSION_COOKIE = "inrp2p_session";
 const SESSION_DAYS = 30;
@@ -93,6 +94,7 @@ export const getSession = cache(async () => {
     include: { user: { include: { company: true, partner: true } } },
   });
   if (!session || session.expiresAt < new Date()) return null;
+  if (isTrainingAccountEmail(session.user.email) && !isTrainingModeEnabled()) return null;
   return session;
 });
 

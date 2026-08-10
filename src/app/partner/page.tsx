@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addPartnerNote } from "@/app/actions/portal";
+import { PartnerPerformanceLedger } from "@/components/processing/partner-performance-ledger";
 import { EmptyState, FormError, PageHeader, StatusBadge } from "@/components/ui";
 import { NoteComposer, NoteList } from "@/components/workspace/records";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logError } from "@/lib/error-log";
 import { directionLabel, fmtDateTime } from "@/lib/format";
+import { indiaPerformancePeriods, summarizePartnerPerformance } from "@/lib/partner-performance";
 import { partnerProgramLevel } from "@/lib/partner-program";
 import { inr, processingTypeLabel } from "@/lib/processing";
 
@@ -32,8 +34,8 @@ type NextAction = {
   tone: "gold" | "emerald" | "rose";
 };
 
-async function loadProcessingSummary(partnerId: string, today: Date) {
-  const [account, rails, orders, completedToday] = await Promise.all([
+async function loadProcessingSummary(partnerId: string, historyStart: Date) {
+  const [account, rails, orders, completedInWindow, recentCompleted] = await Promise.all([
     db.partnerProcessingAccount.findUnique({ where: { partnerId } }),
     db.partnerPaymentRail.findMany({
       where: { partnerId },
@@ -49,13 +51,32 @@ async function loadProcessingSummary(partnerId: string, today: Date) {
       where: {
         partnerId,
         status: "COMPLETED",
-        completedAt: { gte: today },
+        completedAt: { gte: historyStart },
       },
-      select: { amountInr: true, partnerFeeInr: true },
+      select: { type: true, amountInr: true, partnerFeeInr: true, completedAt: true },
+    }),
+    db.processingOrder.findMany({
+      where: {
+        partnerId,
+        status: "COMPLETED",
+        completedAt: { not: null },
+      },
+      select: {
+        id: true,
+        reference: true,
+        type: true,
+        requestedRail: true,
+        amountInr: true,
+        partnerFeeInr: true,
+        completedAt: true,
+        company: { select: { companyName: true } },
+      },
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+      take: 8,
     }),
   ]);
 
-  return { account, rails, orders, completedToday };
+  return { account, rails, orders, completedInWindow, recentCompleted };
 }
 
 export default async function PartnerHomePage({
@@ -67,8 +88,8 @@ export default async function PartnerHomePage({
   if (!user.partner) redirect("/login");
   const { error } = await searchParams;
 
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+  const now = new Date();
+  const performancePeriods = indiaPerformancePeriods(now);
 
   const partner = await db.partnerProfile.findUnique({
     where: { id: user.partner.id },
@@ -99,7 +120,8 @@ export default async function PartnerHomePage({
     account: null,
     rails: [],
     orders: [],
-    completedToday: [],
+    completedInWindow: [],
+    recentCompleted: [],
   };
   let processingUnavailable = false;
   let confirmedReserve = 0;
@@ -127,7 +149,7 @@ export default async function PartnerHomePage({
   const reserveReady = confirmedReserve >= selectedLevel.activationReserveUsdt;
   if (reserveReady) {
     try {
-      processing = await loadProcessingSummary(partner.id, today);
+      processing = await loadProcessingSummary(partner.id, performancePeriods.historyStart);
     } catch (cause) {
       processingUnavailable = true;
       await logError({
@@ -148,14 +170,17 @@ export default async function PartnerHomePage({
   const activeOrders = processing.orders.filter((order) =>
     ["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"].includes(order.status),
   );
-  const completedVolumeToday = processing.completedToday.reduce(
-    (sum, order) => sum + Number(order.amountInr),
-    0,
-  );
-  const earnedToday = processing.completedToday.reduce(
-    (sum, order) => sum + Number(order.partnerFeeInr),
-    0,
-  );
+  const performance = summarizePartnerPerformance(processing.completedInWindow, performancePeriods);
+  const recentCompletedOrders = processing.recentCompleted.flatMap((order) => order.completedAt ? [{
+    id: order.id,
+    reference: order.reference,
+    type: order.type,
+    requestedRail: order.requestedRail,
+    companyName: order.company.companyName,
+    amountInr: Number(order.amountInr),
+    feeInr: Number(order.partnerFeeInr),
+    completedAt: order.completedAt,
+  }] : []);
 
   const setup = [
     { label: "Application submitted", complete: true },
@@ -291,27 +316,35 @@ export default async function PartnerHomePage({
         </div>
       </section>
 
-      <section className="card mb-5 overflow-hidden">
-        <div className="border-b border-black/[0.06] px-5 py-4 sm:px-6">
-          <h2 className="text-sm font-semibold text-slate-900">Activation checklist</h2>
-          <p className="mt-1 text-[11px] text-slate-500">Finish these once. The dashboard then opens directly into daily order work.</p>
-        </div>
-        <ol className="partner-setup-list">
-          {setup.map((item, index) => (
-            <li key={item.label} data-complete={item.complete ? "true" : undefined}>
-              <span>{item.complete ? "✓" : index + 1}</span>
-              <p>{item.label}</p>
-              <small>{item.complete ? "Complete" : index === nextSetupIndex ? "Next" : "Locked"}</small>
-            </li>
-          ))}
-        </ol>
-      </section>
+      {!processingEnabled ? (
+        <section className="card mb-5 overflow-hidden">
+          <div className="border-b border-black/[0.06] px-5 py-4 sm:px-6">
+            <h2 className="text-sm font-semibold text-slate-900">Activation checklist</h2>
+            <p className="mt-1 text-[11px] text-slate-500">Finish these once. The dashboard then opens directly into daily order work.</p>
+          </div>
+          <ol className="partner-setup-list">
+            {setup.map((item, index) => (
+              <li key={item.label} data-complete={item.complete ? "true" : undefined}>
+                <span>{item.complete ? "✓" : index + 1}</span>
+                <p>{item.label}</p>
+                <small>{item.complete ? "Complete" : index === nextSetupIndex ? "Next" : "Locked"}</small>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
+
+      <PartnerPerformanceLedger
+        summary={performance}
+        recentOrders={recentCompletedOrders}
+        now={now}
+        processingEnabled={processingEnabled}
+        dataAvailable={!processingUnavailable}
+      />
 
       {processingEnabled ? (
-        <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="mb-5 grid gap-3 sm:grid-cols-2">
           <div className="partner-stat"><span>Active orders</span><strong>{activeOrders.length}</strong><small>Need action or confirmation</small></div>
-          <div className="partner-stat"><span>Completed today</span><strong>{processing.completedToday.length}</strong><small>{inr(completedVolumeToday)} processed</small></div>
-          <div className="partner-stat"><span>Fee today</span><strong>{inr(earnedToday)}</strong><small>From completed orders</small></div>
           <div className="partner-stat"><span>Free INR limit</span><strong>{processing.account ? inr(processing.account.approvedLimitInr.minus(processing.account.lockedExposureInr)) : "—"}</strong><small>{inr(processing.account?.lockedExposureInr ?? 0)} currently locked</small></div>
         </section>
       ) : null}

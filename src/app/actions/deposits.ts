@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import { notify } from "@/lib/notify";
 import { partnerProgramLevel } from "@/lib/partner-program";
 import { createReference } from "@/lib/secure-token";
+import { isTrainingAccountEmail } from "@/lib/training";
 
 const DEPOSIT_PATH = "/partner/deposit";
 const ADMIN_PATH = "/admin/deposits";
@@ -88,6 +89,9 @@ export async function beginPartnerActivation(fd: FormData) {
 export async function createPartnerDeposit(fd: FormData) {
   const user = await requireRole("PARTNER");
   if (!user.partner) redirect("/login");
+  if (isTrainingAccountEmail(user.email)) {
+    finish(DEPOSIT_PATH, "error", "Training accounts cannot create live wallet instructions. Use the simulated reserve workflow.");
+  }
   const selectedLevel = partnerProgramLevel(text(fd, "programLevel"));
   const requestedOrder = text(fd, "sourceOrder");
   const sourceOrder = /^PX-(?:IN|OUT)-\d{4,8}$/.test(requestedOrder) ? requestedOrder : undefined;
@@ -178,6 +182,9 @@ export async function createPartnerDeposit(fd: FormData) {
 export async function submitPartnerDepositTransaction(fd: FormData) {
   const user = await requireRole("PARTNER");
   if (!user.partner) redirect("/login");
+  if (isTrainingAccountEmail(user.email)) {
+    finish(DEPOSIT_PATH, "error", "Training accounts cannot submit live blockchain transactions.");
+  }
   const depositId = text(fd, "depositId");
   const transactionHash = normalizeDepositTxHash(text(fd, "transactionHash"));
   if (!transactionHash) finish(DEPOSIT_PATH, "error", "Enter a valid 64-character TRON transaction hash.");
@@ -239,9 +246,12 @@ export async function reviewPartnerDeposit(fd: FormData) {
   const note = text(fd, "note");
   const deposit = await db.partnerDeposit.findUnique({
     where: { id: depositId },
-    include: { partner: true },
+    include: { partner: { include: { user: true } } },
   });
   if (!deposit) finish(ADMIN_PATH, "error", "Deposit not found.");
+  if (isTrainingAccountEmail(deposit.partner.user.email)) {
+    finish(ADMIN_PATH, "error", "Training reserve records can only be advanced from Training Studio.");
+  }
 
   const now = new Date();
   let nextStatus = deposit.status;

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { createNotification } from "@/lib/notifications";
 import { notifyUser as pushTelegram } from "@/lib/telegram";
 import { isWhatsAppConfigured, sendWhatsAppTemplate } from "@/lib/whatsapp";
+import { isTrainingAccountEmail } from "@/lib/training";
 
 /** Phone lives on CompanyProfile/PartnerProfile, not User directly — check
     whichever one this user actually has. Used only for the WhatsApp fan-out
@@ -29,6 +30,11 @@ export async function notify(
   userId: string,
   opts: { title: string; body: string; telegramHtml: string; link?: string },
 ): Promise<void> {
+  const recipient = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (recipient && isTrainingAccountEmail(recipient.email)) {
+    await createNotification(userId, { title: opts.title, body: opts.body, link: opts.link });
+    return;
+  }
   const tasks: Promise<unknown>[] = [
     createNotification(userId, { title: opts.title, body: opts.body, link: opts.link }),
     pushTelegram(userId, opts.telegramHtml),

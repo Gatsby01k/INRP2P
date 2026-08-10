@@ -11,6 +11,7 @@ import { partnerProgramLevel } from "@/lib/partner-program";
 import { encryptProcessingData, initials, maskDestination } from "@/lib/processing-data";
 import { paymentRailSchema, processingAccountSchema, processingOrderSchema } from "@/lib/processing-schemas";
 import { createReference } from "@/lib/secure-token";
+import { isTrainingAccountEmail } from "@/lib/training";
 
 const PARTNER_PROCESSING_PATH = "/partner/processing";
 const COMPANY_PROCESSING_PATH = "/company/processing";
@@ -105,6 +106,9 @@ async function notifyOrderPartner(partnerUserId: string, _title: string, _body: 
 export async function createPaymentRail(fd: FormData) {
   const user = await requireVerifiedRole("PARTNER");
   if (!user.partner) redirect("/login");
+  if (isTrainingAccountEmail(user.email)) {
+    finish(PARTNER_PROCESSING_PATH, "error", "Training payment rails are prepared in Training Studio. Never enter real bank details in a training account.");
+  }
   if (["REJECTED", "SUSPENDED"].includes(user.partner.status)) {
     finish(PARTNER_PROCESSING_PATH, "error", "Payment rails are unavailable while this partner account is restricted.");
   }
@@ -468,8 +472,10 @@ export async function raiseProcessingDispute(fd: FormData) {
     await recordEvent(tx, { orderId: order.id, fromStatus: previous, toStatus: "DISPUTED", user, note: reason });
   });
   await audit({ action: "processing.order_disputed", entityType: "ProcessingOrder", entityId: order.id, actorId: user.id, actorLabel: actorLabel(user), partnerId: order.partnerId, meta: { from: previous, to: "DISPUTED", reason } });
-  const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
-  await Promise.all(admins.map((admin) => notify(admin.id, { title: "Processing dispute opened", body: "A live processing dispute requires operator review in the secure workspace.", telegramHtml: "<b>Processing dispute opened</b>\nReview it in the secure INRP2P workspace.", link: `/admin/processing/${order.id}` })));
+  if (!isTrainingAccountEmail(user.email)) {
+    const admins = await db.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+    await Promise.all(admins.map((admin) => notify(admin.id, { title: "Processing dispute opened", body: "A live processing dispute requires operator review in the secure workspace.", telegramHtml: "<b>Processing dispute opened</b>\nReview it in the secure INRP2P workspace.", link: `/admin/processing/${order.id}` })));
+  }
   finish(user.role === "PARTNER" ? `/partner/processing/${order.id}` : `/company/processing/${order.id}`, "notice", "Dispute opened. Exposure remains locked until operator resolution.");
 }
 

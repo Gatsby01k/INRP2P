@@ -11,6 +11,7 @@ import {
   type PartnerProgramLevel,
 } from "@/lib/partner-program";
 import {
+  PARTNER_PREVIEW_RAIL_NOTES,
   initialPartnerPreviewOrders,
   partnerPreviewCountdown,
   tickPartnerPreviewOrders,
@@ -150,7 +151,7 @@ export function PartnerOrderPreview({
                   <p className="mt-1 text-[10px] text-slate-400">{order.flow === "Pay-in" ? "Incoming customer payment" : "Outbound beneficiary payment"} · details protected</p>
                 </div>
                 <div><p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">Ticket</p><p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{inr(order.amountInr)}</p></div>
-                <div><p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">Rail</p><p className="mt-1 text-xs font-medium text-slate-700">{order.rail}</p></div>
+                <div><p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">Rail</p><p className="mt-1 text-xs font-medium text-slate-700">{order.rail}</p><p className="mt-0.5 text-[8px] leading-3 text-slate-400">{PARTNER_PREVIEW_RAIL_NOTES[order.rail]}</p></div>
                 <div><p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">Offer hold</p><p className={`mt-1 font-mono text-xs font-semibold tabular-nums ${order.expiresInSeconds <= 10 ? "text-red-600" : "text-slate-700"}`}>{partnerPreviewCountdown(order.expiresInSeconds)}</p></div>
                 <div><p className="text-[9px] uppercase tracking-[0.1em] text-slate-400">Est. commission</p><p className="mt-1 text-sm font-semibold tabular-nums text-emerald-700">{inr(commission)}</p></div>
                 <form action={beginPartnerActivation}>
@@ -165,7 +166,7 @@ export function PartnerOrderPreview({
           })}
         </div>
         <div className="border-t border-black/[0.06] bg-[#fbf8f2] px-5 py-3 text-[10px] leading-5 text-slate-500 sm:px-6">
-          Simulated preview only — no merchant or customer instruction is shown here. Amounts follow common rail bands, but actual bank limits may be lower. Live availability starts only after the full selected reserve, account review and operator limit are confirmed.
+          Simulated preview only — no merchant or customer instruction is shown here. Tickets follow normal UPI, IMPS and RTGS scheme guardrails; NEFT and bank-level limits can vary. Live availability starts only after the full selected reserve, account review and operator limit are confirmed.
         </div>
       </section>
 

@@ -12,6 +12,7 @@ export function WorkspaceShell({
   nav,
   userLine,
   showBuildTag = false,
+  environmentBanner,
   children,
 }: {
   badge: string;
@@ -21,6 +22,7 @@ export function WorkspaceShell({
   /** Internal build/version tag — an operations detail, not something a
       company or partner needs to see in their own workspace. Admin only. */
   showBuildTag?: boolean;
+  environmentBanner?: { label: string; body: string };
   children: React.ReactNode;
 }) {
   return (
@@ -64,6 +66,15 @@ export function WorkspaceShell({
         </div>
       </aside>
       <div className="min-w-0 flex-1">
+        {environmentBanner ? (
+          <div className="border-b border-sky-200 bg-sky-50 px-4 py-2.5 text-sky-800 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-[0.16em]">{environmentBanner.label}</span>
+              <span className="hidden h-3 w-px bg-sky-300 sm:block" />
+              <p className="text-[10px] leading-4 text-sky-700">{environmentBanner.body}</p>
+            </div>
+          </div>
+        ) : null}
         <main className="workspace-main min-w-0 px-3 py-4 min-[390px]:px-4 sm:p-6 lg:px-8 lg:py-7">{children}</main>
       </div>
     </div>

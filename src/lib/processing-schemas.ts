@@ -47,6 +47,15 @@ export const processingOrderSchema = z.object({
   ifsc: z.string().trim().max(20).optional().default(""),
   companyNote: z.string().trim().max(500).optional().default(""),
 }).superRefine((data, ctx) => {
+  if (data.requestedRail === "UPI" && data.amountInr > 100_000) {
+    ctx.addIssue({ code: "custom", path: ["amountInr"], message: "Normal UPI orders cannot exceed ₹1,00,000." });
+  }
+  if (data.requestedRail === "IMPS" && data.amountInr > 500_000) {
+    ctx.addIssue({ code: "custom", path: ["amountInr"], message: "IMPS orders cannot exceed ₹5,00,000." });
+  }
+  if (data.requestedRail === "RTGS" && data.amountInr < 200_000) {
+    ctx.addIssue({ code: "custom", path: ["amountInr"], message: "RTGS orders must be at least ₹2,00,000." });
+  }
   if (data.type === "PAY_IN" && data.payerName.length < 2) {
     ctx.addIssue({ code: "custom", path: ["payerName"], message: "Payer name is required for pay-in reconciliation." });
   }

@@ -105,6 +105,12 @@ export function auditLabel(action: string, meta?: unknown): string {
       return "USDT reserve refunded";
     case "deposit.rejected":
       return "USDT reserve deposit rejected";
+    case "training.scenario_applied":
+      return `Training scenario prepared${m.scenario ? ` — ${statusLabel(String(m.scenario))}` : ""}`;
+    case "training.reserve_instruction_created":
+      return "Training reserve instruction created";
+    case "training.reserve_submitted":
+      return "Training reserve submission simulated";
     default:
       return statusLabel(action.replace(/\./g, "_"));
   }
