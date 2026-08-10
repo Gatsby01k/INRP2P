@@ -13,7 +13,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
     "check": "npm run db:validate && npm run lint && npm run typecheck && npm test && npm run build",
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
