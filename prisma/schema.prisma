@@ -168,6 +168,13 @@ enum PartnerTier {
   RESTRICTED
 }
 
+enum PartnerProgramLevel {
+  STARTER
+  VERIFIED
+  PRO
+  PRIME
+}
+
 enum IncidentSeverity {
   LOW
   MEDIUM
@@ -495,6 +502,7 @@ model PartnerProfile {
   additionalComments   String?
   status               PartnerStatus @default(APPLIED)
   tier                 PartnerTier   @default(CANDIDATE)
+  programLevel         PartnerProgramLevel @default(STARTER)
   verifiedAt           DateTime?
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt

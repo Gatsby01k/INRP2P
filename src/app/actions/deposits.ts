@@ -55,7 +55,7 @@ export async function beginPartnerActivation(fd: FormData) {
   if (!user.partner) redirect("/login");
   const selectedLevel = partnerProgramLevel(text(fd, "programLevel"));
   const requestedOrder = text(fd, "sourceOrder");
-  const sourceOrder = /^PX-(?:IN|OUT)-\d{4}$/.test(requestedOrder) ? requestedOrder : null;
+  const sourceOrder = /^PX-(?:IN|OUT)-\d{4,8}$/.test(requestedOrder) ? requestedOrder : null;
 
   if (!sourceOrder) {
     finish("/partner/processing", "error", "Choose an order from the preview queue to begin activation.");
@@ -64,6 +64,11 @@ export async function beginPartnerActivation(fd: FormData) {
     finish("/partner/processing", "error", "Order activation is unavailable while this partner account is restricted.");
   }
 
+  await db.partnerProfile.update({
+    where: { id: user.partner.id },
+    data: { programLevel: selectedLevel.code },
+  });
+
   await audit({
     action: "partner.activation_started",
     entityType: "PartnerProfile",
@@ -71,9 +76,11 @@ export async function beginPartnerActivation(fd: FormData) {
     actorId: user.id,
     actorLabel: user.partner.displayName,
     partnerId: user.partner.id,
-    meta: { programLevel: selectedLevel.code, sourceOrder },
+    meta: { from: user.partner.programLevel, to: selectedLevel.code, programLevel: selectedLevel.code, sourceOrder },
   });
 
+  revalidatePath("/partner");
+  revalidatePath("/partner/processing");
   redirect(`/partner/deposit?plan=${selectedLevel.code}&order=${sourceOrder}`);
 }
 
@@ -83,7 +90,7 @@ export async function createPartnerDeposit(fd: FormData) {
   if (!user.partner) redirect("/login");
   const selectedLevel = partnerProgramLevel(text(fd, "programLevel"));
   const requestedOrder = text(fd, "sourceOrder");
-  const sourceOrder = /^PX-(?:IN|OUT)-\d{4}$/.test(requestedOrder) ? requestedOrder : undefined;
+  const sourceOrder = /^PX-(?:IN|OUT)-\d{4,8}$/.test(requestedOrder) ? requestedOrder : undefined;
   const activationQuery = { plan: selectedLevel.code, order: sourceOrder };
   if (["REJECTED", "SUSPENDED"].includes(user.partner.status)) {
     finish(DEPOSIT_PATH, "error", "Deposits are unavailable while this partner account is restricted.", activationQuery);
@@ -107,17 +114,43 @@ export async function createPartnerDeposit(fd: FormData) {
     finish(DEPOSIT_PATH, "error", "You already have three active deposit instructions. Complete or wait for one to expire.", activationQuery);
   }
 
-  const deposit = await db.partnerDeposit.create({
-    data: {
-      reference: createReference("DEP"),
-      partnerId: user.partner.id,
-      amount,
-      provider: "DIRECT_TRC20",
-      providerStatus: "awaiting_transfer",
-      destinationAddress,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-    },
+  const confirmedDeposits = await db.partnerDeposit.findMany({
+    where: { partnerId: user.partner.id, status: "CONFIRMED" },
+    select: { amount: true, actualAmount: true },
   });
+  const confirmedReserve = confirmedDeposits.reduce(
+    (sum, item) => sum.plus(item.actualAmount ?? item.amount),
+    new Prisma.Decimal(0),
+  );
+  const requiredReserve = new Prisma.Decimal(selectedLevel.activationReserveUsdt);
+  const remainingReserve = requiredReserve.minus(confirmedReserve);
+  const activationAmountDue = remainingReserve.gt(0) ? remainingReserve : new Prisma.Decimal(0);
+  if (activationAmountDue.gt(0) && !amount.equals(activationAmountDue)) {
+    finish(
+      DEPOSIT_PATH,
+      "error",
+      `${selectedLevel.name} requires ${requiredReserve.toString()} USDT total reserve. Your exact amount due is ${activationAmountDue.toString()} USDT.`,
+      activationQuery,
+    );
+  }
+
+  const [, deposit] = await db.$transaction([
+    db.partnerProfile.update({
+      where: { id: user.partner.id },
+      data: { programLevel: selectedLevel.code },
+    }),
+    db.partnerDeposit.create({
+      data: {
+        reference: createReference("DEP"),
+        partnerId: user.partner.id,
+        amount,
+        provider: "DIRECT_TRC20",
+        providerStatus: "awaiting_transfer",
+        destinationAddress,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+    }),
+  ]);
   await audit({
     action: "deposit.intent_created",
     entityType: "PartnerDeposit",
@@ -133,6 +166,9 @@ export async function createPartnerDeposit(fd: FormData) {
       destinationAddress,
       programLevel: selectedLevel.code,
       sourceOrder,
+      requiredReserve: requiredReserve.toString(),
+      confirmedReserveBefore: confirmedReserve.toString(),
+      activationAmountDue: activationAmountDue.toString(),
     },
   });
   finish(DEPOSIT_PATH, "notice", "Reserve instruction created. Send the exact amount, then submit the transaction hash.", activationQuery);

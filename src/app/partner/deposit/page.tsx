@@ -15,7 +15,7 @@ import { logError } from "@/lib/error-log";
 import { fmtDateTime } from "@/lib/format";
 import { PARTNER_PROGRAM_LEVELS, partnerProgramLevel } from "@/lib/partner-program";
 
-export const metadata: Metadata = { title: "USDT reserve" };
+export const metadata: Metadata = { title: "Activate order desk" };
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -87,8 +87,8 @@ export default async function PartnerDepositPage({
 }) {
   const [user, flash] = await Promise.all([requireRole("PARTNER"), searchParams]);
   if (!user.partner) redirect("/login");
-  const selectedLevel = partnerProgramLevel(flash.plan);
-  const sourceOrder = /^PX-(?:IN|OUT)-\d{4}$/.test(flash.order ?? "") ? flash.order : null;
+  const selectedLevel = partnerProgramLevel(flash.plan ?? user.partner.programLevel);
+  const sourceOrder = /^PX-(?:IN|OUT)-\d{4,8}$/.test(flash.order ?? "") ? flash.order : null;
 
   let deposits: PartnerDeposit[] = [];
   let ledgerUnavailable = false;
@@ -104,18 +104,21 @@ export default async function PartnerDepositPage({
   const reserve = confirmed.reduce((sum, item) => sum + amount(item.actualAmount ?? item.amount), 0);
   const awaiting = deposits.filter((item) => ["AWAITING_PAYMENT", "CONFIRMING"].includes(item.status));
   const walletAddress = companyUsdtTrc20Address();
+  const requiredReserve = selectedLevel.activationReserveUsdt;
+  const amountDue = Math.max(requiredReserve - reserve, 0);
+  const activationComplete = amountDue <= 0;
 
   return (
     <>
       <PageHeader
-        title={reserve > 0 ? "Operating reserve" : "Activate your order desk"}
-        sub={reserve > 0
+        title={activationComplete ? "Operating reserve" : "Activate your order desk"}
+        sub={activationComplete
           ? "Review your confirmed reserve and transfer history."
-          : "Choose your level, create the official reserve instruction and submit the transfer for review."}
+          : `Confirm the ${requiredReserve.toLocaleString("en-US")} USDT reserve required for ${selectedLevel.name}.`}
       />
       <Flash notice={flash.notice} error={flash.error} />
 
-      {reserve <= 0 ? (
+      {!activationComplete ? (
         <section className="mb-4 overflow-hidden rounded-2xl border border-[#07152e]/10 bg-white shadow-card">
           <div className="grid gap-5 bg-[#07152e] px-5 py-5 text-white sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
             <div>
@@ -124,10 +127,10 @@ export default async function PartnerDepositPage({
                 {sourceOrder ? <span className="font-mono text-[10px] text-white/45">From sample order {sourceOrder}</span> : null}
               </div>
               <h2 className="mt-3 text-xl font-semibold tracking-[-0.025em]">Activate {selectedLevel.name}</h2>
-              <p className="mt-1 max-w-2xl text-xs leading-5 text-white/55">Create a reserve instruction below. After the transfer is confirmed, operations completes account review and assigns your live INR order limit.</p>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-white/55">Transfer the exact amount due below. After the full reserve is confirmed, operations completes account review and assigns your live INR order limit.</p>
             </div>
             <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 lg:min-w-[310px]">
-              <div className="bg-[#07152e] px-4 py-3"><p className="text-[9px] uppercase tracking-[0.12em] text-white/35">Monthly base</p><p className="mt-1 text-lg font-semibold">{selectedLevel.monthlyBaseUsdt.toLocaleString("en-US")} <span className="text-[9px] text-white/40">USDT</span></p></div>
+              <div className="bg-[#07152e] px-4 py-3"><p className="text-[9px] uppercase tracking-[0.12em] text-white/35">Reserve required</p><p className="mt-1 text-lg font-semibold">{requiredReserve.toLocaleString("en-US")} <span className="text-[9px] text-white/40">USDT</span></p></div>
               <div className="bg-[#07152e] px-4 py-3"><p className="text-[9px] uppercase tracking-[0.12em] text-white/35">Commission</p><p className="mt-1 text-lg font-semibold text-emerald-300">{selectedLevel.commissionRate}%</p></div>
             </div>
           </div>
@@ -139,7 +142,7 @@ export default async function PartnerDepositPage({
                 className={`flex items-center justify-between gap-3 bg-white px-4 py-3 transition hover:bg-[#fbf8f2] ${level.code === selectedLevel.code ? "shadow-[inset_0_-2px_0_#efa12f]" : ""}`}
               >
                 <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-800">{level.name}</span>
-                <span className="text-[10px] font-semibold tabular-nums text-slate-400">{level.commissionRate}%</span>
+                <span className="text-[10px] font-semibold tabular-nums text-slate-500">{level.activationReserveUsdt.toLocaleString("en-US")} USDT</span>
               </Link>
             ))}
           </div>
@@ -193,10 +196,21 @@ export default async function PartnerDepositPage({
               <form action={createPartnerDeposit} className="mt-5">
                 <input type="hidden" name="programLevel" value={selectedLevel.code} />
                 {sourceOrder ? <input type="hidden" name="sourceOrder" value={sourceOrder} /> : null}
-                <label className="lbl" htmlFor="deposit-amount">Amount</label>
+                <label className="lbl" htmlFor="deposit-amount">{activationComplete ? "Top-up amount" : `Exact amount due for ${selectedLevel.name}`}</label>
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_230px] sm:items-stretch">
                   <div className="relative">
-                    <input id="deposit-amount" className="input h-12 pr-16 text-base tabular-nums" name="amount" type="number" min="10" max="1000000" step="0.000001" defaultValue="300" required />
+                    <input
+                      id="deposit-amount"
+                      className={`input h-12 pr-16 text-base tabular-nums ${activationComplete ? "" : "cursor-not-allowed bg-slate-50 font-semibold"}`}
+                      name="amount"
+                      type="number"
+                      min="10"
+                      max="1000000"
+                      step="0.000001"
+                      defaultValue={activationComplete ? 300 : amountDue}
+                      readOnly={!activationComplete}
+                      required
+                    />
                     <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">USDT</span>
                   </div>
                   <SubmitButton
@@ -204,10 +218,10 @@ export default async function PartnerDepositPage({
                     pendingLabel="Creating…"
                     disabled={!walletAddress}
                   >
-                    {reserve > 0 ? "Create instruction →" : `Activate ${selectedLevel.name} →`}
+                    {activationComplete ? "Create top-up instruction →" : `Deposit ${amountDue.toLocaleString("en-US")} USDT →`}
                   </SubmitButton>
                 </div>
-                <p className="mt-2 text-[11px] text-slate-500">10–1,000,000 USDT · up to 6 decimals</p>
+                <p className="mt-2 text-[11px] text-slate-500">{activationComplete ? "Top-ups: 10–1,000,000 USDT." : `Fixed by your selected ${selectedLevel.name} level. Confirmed so far: ${usdt(reserve)} USDT.`}</p>
               </form>
               {!walletAddress ? (
                 <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">Deposits are unavailable until the official company wallet is configured.</p>
@@ -263,8 +277,9 @@ export default async function PartnerDepositPage({
           <section className="overflow-hidden rounded-2xl bg-[#07152e] text-white shadow-card">
             <div className="border-b border-white/10 p-5">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-400">Reserve passport</p>
-              <p className="mt-3 text-3xl font-semibold tabular-nums">{usdt(reserve)}</p>
-              <p className="mt-1 text-xs text-white/50">Confirmed USDT</p>
+              <p className="mt-3 text-3xl font-semibold tabular-nums">{usdt(reserve)} <span className="text-sm text-white/35">/ {requiredReserve.toLocaleString("en-US")}</span></p>
+              <p className="mt-1 text-xs text-white/50">Confirmed / required USDT · {selectedLevel.name}</p>
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, (reserve / requiredReserve) * 100)}%` }} /></div>
             </div>
             <div className="grid grid-cols-2 divide-x divide-white/10">
               <div className="p-4">

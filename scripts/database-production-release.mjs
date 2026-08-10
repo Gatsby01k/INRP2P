@@ -48,6 +48,12 @@ async function runtimeSchemaReady() {
       EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public'
+          AND table_name = 'PartnerProfile'
+          AND column_name = 'programLevel'
+      ) AS "programLevelReady",
+      EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
           AND table_name = 'PartnerDeposit'
           AND column_name = 'destinationAddress'
       ) AS "walletColumnReady"
@@ -57,7 +63,8 @@ async function runtimeSchemaReady() {
     rows[0]?.processingOrderReady === true &&
     rows[0]?.processingAccountReady === true &&
     rows[0]?.paymentRailReady === true &&
-    rows[0]?.settlementReady === true;
+    rows[0]?.settlementReady === true &&
+    rows[0]?.programLevelReady === true;
 }
 
 try {

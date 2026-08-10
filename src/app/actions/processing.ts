@@ -7,6 +7,7 @@ import { audit } from "@/lib/audit";
 import { actorLabel, requireRole, requireVerifiedRole, type SessionUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notify";
+import { partnerProgramLevel } from "@/lib/partner-program";
 import { encryptProcessingData, initials, maskDestination } from "@/lib/processing-data";
 import { paymentRailSchema, processingAccountSchema, processingOrderSchema } from "@/lib/processing-schemas";
 import { createReference } from "@/lib/secure-token";
@@ -192,11 +193,17 @@ export async function configureProcessingAccount(fd: FormData) {
   const partner = await db.partnerProfile.findUnique({ where: { id: data.partnerId }, include: { deposits: { where: { status: "CONFIRMED" } } } });
   if (!partner) finish(ADMIN_PROCESSING_PATH, "error", "Partner not found.");
   const confirmedReserve = partner.deposits.reduce((sum, item) => sum.plus(item.actualAmount ?? item.amount), decimal(0));
+  const selectedLevel = partnerProgramLevel(partner.programLevel);
+  const requiredReserve = decimal(selectedLevel.activationReserveUsdt);
   if (data.enabled && !["VERIFIED", "LIMITED"].includes(partner.status)) {
     finish(ADMIN_PROCESSING_PATH, "error", "Only a verified or limited partner can enter the processing queue.");
   }
-  if (data.enabled && confirmedReserve.lte(0)) {
-    finish(ADMIN_PROCESSING_PATH, "error", "Confirm the partner insurance reserve before enabling live processing.");
+  if (data.enabled && confirmedReserve.lt(requiredReserve)) {
+    finish(
+      ADMIN_PROCESSING_PATH,
+      "error",
+      `${selectedLevel.name} requires ${requiredReserve.toString()} USDT confirmed reserve before enabling live processing.`,
+    );
   }
   const existing = await db.partnerProcessingAccount.findUnique({ where: { partnerId: partner.id } });
   if (existing && decimal(data.approvedLimitInr).lt(existing.lockedExposureInr)) {
@@ -219,7 +226,7 @@ export async function configureProcessingAccount(fd: FormData) {
       version: { increment: 1 },
     },
   });
-  await audit({ action: "processing.account_configured", entityType: "PartnerProcessingAccount", entityId: account.id, actorId: admin.id, actorLabel: "Operator", partnerId: partner.id, meta: { enabled: data.enabled, approvedLimitInr: data.approvedLimitInr, payInFeeBps: data.payInFeeBps, payOutFeeBps: data.payOutFeeBps, confirmedReserveUsdt: confirmedReserve.toString() } });
+  await audit({ action: "processing.account_configured", entityType: "PartnerProcessingAccount", entityId: account.id, actorId: admin.id, actorLabel: "Operator", partnerId: partner.id, meta: { enabled: data.enabled, approvedLimitInr: data.approvedLimitInr, payInFeeBps: data.payInFeeBps, payOutFeeBps: data.payOutFeeBps, programLevel: selectedLevel.code, requiredReserveUsdt: requiredReserve.toString(), confirmedReserveUsdt: confirmedReserve.toString() } });
   finish(ADMIN_PROCESSING_PATH, "notice", `${partner.displayName} processing controls updated.`);
 }
 
