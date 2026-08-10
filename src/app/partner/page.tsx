@@ -8,6 +8,7 @@ import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logError } from "@/lib/error-log";
 import { directionLabel, fmtDateTime } from "@/lib/format";
+import { partnerProgramLevel } from "@/lib/partner-program";
 import { inr, processingTypeLabel } from "@/lib/processing";
 
 export const metadata: Metadata = { title: "Partner home" };
@@ -92,6 +93,7 @@ export default async function PartnerHomePage({
   });
 
   if (!partner) redirect("/login");
+  const selectedLevel = partnerProgramLevel(partner.programLevel);
 
   let processing: Awaited<ReturnType<typeof loadProcessingSummary>> = {
     account: null,
@@ -122,7 +124,8 @@ export default async function PartnerHomePage({
     });
   }
 
-  if (confirmedReserve > 0) {
+  const reserveReady = confirmedReserve >= selectedLevel.activationReserveUsdt;
+  if (reserveReady) {
     try {
       processing = await loadProcessingSummary(partner.id, today);
     } catch (cause) {
@@ -156,7 +159,7 @@ export default async function PartnerHomePage({
 
   const setup = [
     { label: "Application submitted", complete: true },
-    { label: "Operating reserve", complete: confirmedReserve > 0 },
+    { label: `${selectedLevel.name} reserve (${selectedLevel.activationReserveUsdt.toLocaleString("en-US")} USDT)`, complete: reserveReady },
     { label: "Partner verification", complete: approved },
     { label: "Payment account approved", complete: activeRailCount > 0 },
     { label: "INR order limit enabled", complete: processingEnabled },
@@ -172,11 +175,11 @@ export default async function PartnerHomePage({
       body: STATUS_COPY[partner.status],
       tone: "rose",
     };
-  } else if (confirmedReserve <= 0) {
+  } else if (!reserveReady) {
     nextAction = {
       eyebrow: "Step 2 of 5",
       title: "Choose an order and activate your reserve",
-      body: "Open the preview queue, choose your operating level and start from any sample order. Live work unlocks after reserve confirmation and review.",
+      body: `Open the preview queue and choose an order. ${selectedLevel.name} requires ${selectedLevel.activationReserveUsdt.toLocaleString("en-US")} USDT confirmed reserve before live work can open.`,
       href: "/partner/processing",
       label: "Browse orders",
       tone: "gold",

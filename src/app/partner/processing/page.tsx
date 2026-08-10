@@ -58,18 +58,22 @@ export default async function PartnerProcessingPage({
   const user = await requireVerifiedRole("PARTNER");
   if (!user.partner) redirect("/login");
   const query = await searchParams;
-  const selectedLevel = partnerProgramLevel(query.plan);
+  const selectedLevel = partnerProgramLevel(query.plan ?? user.partner.programLevel);
 
   let confirmedReserve = false;
+  let confirmedReserveUsdt = 0;
   let activationState: "NOT_STARTED" | "AWAITING_PAYMENT" | "UNDER_REVIEW" = "NOT_STARTED";
   try {
     const reserveEntries = await db.partnerDeposit.findMany({
       where: { partnerId: user.partner.id },
-      select: { status: true },
+      select: { status: true, amount: true, actualAmount: true },
       orderBy: { createdAt: "desc" },
       take: 10,
     });
-    confirmedReserve = reserveEntries.some((entry) => entry.status === "CONFIRMED");
+    confirmedReserveUsdt = reserveEntries
+      .filter((entry) => entry.status === "CONFIRMED")
+      .reduce((sum, entry) => sum + Number((entry.actualAmount ?? entry.amount).toString()), 0);
+    confirmedReserve = confirmedReserveUsdt >= selectedLevel.activationReserveUsdt;
     activationState = reserveEntries.some((entry) => entry.status === "CONFIRMING")
       ? "UNDER_REVIEW"
       : reserveEntries.some((entry) => entry.status === "AWAITING_PAYMENT")
@@ -94,7 +98,11 @@ export default async function PartnerProcessingPage({
           sub="Explore the order workflow, choose your operating level and activate your desk from any sample order."
         />
         <Flash notice={query.notice} error={query.error} />
-        <PartnerOrderPreview selectedLevel={selectedLevel} activationState={activationState} />
+        <PartnerOrderPreview
+          selectedLevel={selectedLevel}
+          activationState={activationState}
+          confirmedReserveUsdt={confirmedReserveUsdt}
+        />
       </>
     );
   }

@@ -19,3 +19,13 @@ test("partner commission preview follows the selected level", () => {
     [1_000, 1_250, 1_500, 2_000],
   );
 });
+
+test("each operating level requires a reserve equal to its monthly base", () => {
+  assert.deepEqual(
+    PARTNER_PROGRAM_LEVELS.map((level) => level.activationReserveUsdt),
+    [400, 700, 1_000, 1_500],
+  );
+  for (const level of PARTNER_PROGRAM_LEVELS) {
+    assert.equal(level.activationReserveUsdt, level.monthlyBaseUsdt);
+  }
+});
