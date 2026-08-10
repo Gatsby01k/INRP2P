@@ -37,7 +37,7 @@ export default async function AdminLayout({
           { href: "/admin/audit", label: "Audit log" },
           { href: "/admin/errors", label: "Errors" },
           { href: "/admin/security", label: "Security" },
-          ...(isTrainingModeEnabled() ? [{ href: "/admin/training", label: "Training Studio" }] : []),
+          ...(isTrainingModeEnabled() ? [{ href: "/admin/training", label: "Demo Operations" }] : []),
         ]}
       >
         {children}

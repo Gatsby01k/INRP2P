@@ -16,10 +16,10 @@ export default async function CompanyLayout({
     <WorkspaceShell
       badge="Company"
       badgeTone="sky"
-      userLine={isTraining ? "Training account" : user.email}
+      userLine={isTraining ? "Demo company" : user.email}
       environmentBanner={isTraining ? {
-        label: "Training Mode",
-        body: "Simulated identities, orders and outcomes. No real customer data, funds or external transfers.",
+        label: "Demo data",
+        body: "Realistic simulated orders and outcomes for product demonstration. No customer data, funds or external transfers.",
       } : undefined}
       nav={[
         { href: "/company", label: "My requests", exact: true },

@@ -16,10 +16,10 @@ export default async function PartnerLayout({
     <WorkspaceShell
       badge="Partner"
       badgeTone="emerald"
-      userLine={training ? "Training account" : user.email}
+      userLine={training ? "Demo partner" : user.email}
       environmentBanner={training ? {
-        label: "Training Mode",
-        body: "Simulated identities, orders, reserve and commissions. No real customer data, funds or external transfers.",
+        label: "Demo data",
+        body: "Realistic simulated orders and performance for product demonstration. No customer data, funds or external transfers.",
       } : undefined}
       nav={[
         { href: "/partner", label: "Home", exact: true },

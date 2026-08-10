@@ -107,7 +107,7 @@ export async function createPaymentRail(fd: FormData) {
   const user = await requireVerifiedRole("PARTNER");
   if (!user.partner) redirect("/login");
   if (isTrainingAccountEmail(user.email)) {
-    finish(PARTNER_PROCESSING_PATH, "error", "Training payment rails are prepared in Training Studio. Never enter real bank details in a training account.");
+    finish(PARTNER_PROCESSING_PATH, "error", "Demo payment rails are prepared in Demo Operations. Never enter real bank details in a demo account.");
   }
   if (["REJECTED", "SUSPENDED"].includes(user.partner.status)) {
     finish(PARTNER_PROCESSING_PATH, "error", "Payment rails are unavailable while this partner account is restricted.");
