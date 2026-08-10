@@ -45,7 +45,11 @@ export async function logError(input: LogErrorInput): Promise<void> {
 
   // Always visible in Vercel's function logs regardless of whether the DB
   // write below succeeds.
-  console.error(`[${severity}] ${input.source}: ${message}`, input.error);
+  console.error(`[${severity}] ${input.source}: ${message}`, {
+    error: input.error,
+    url: input.url ?? null,
+    meta: input.meta ?? null,
+  });
 
   try {
     await db.errorLog.create({
