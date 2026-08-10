@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { directionLabel, fmtDate } from "@/lib/format";
 import { BANK_OPTIONS, CAPACITY_BANDS, METHOD_OPTIONS, RESERVE_BANDS } from "@/lib/options";
 
-export const metadata: Metadata = { title: "Profile & capacity" };
+export const metadata: Metadata = { title: "Partner profile" };
 
 export default async function PartnerProfilePage({
   searchParams,
@@ -25,8 +25,8 @@ export default async function PartnerProfilePage({
   return (
     <>
       <PageHeader
-        title="Profile & capacity"
-        sub="Identity is fixed at application; operational capacity is yours to keep current."
+        title="Profile"
+        sub="Keep your default capacity, working hours and payment coverage accurate. Use Availability for short-term changes."
       />
 
       {error ? (
@@ -38,7 +38,7 @@ export default async function PartnerProfilePage({
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
           <div className="card p-5 sm:p-6">
-            <SectionTitle title="Operational capacity" />
+            <SectionTitle title="Default operating capacity" />
             <form action={updatePartnerOps} className="space-y-5">
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="Daily capacity">

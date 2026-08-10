@@ -3,19 +3,19 @@ import { FormShell } from "@/components/site/form-shell";
 import { ApplyForm } from "@/components/forms/apply-form";
 
 export const metadata: Metadata = {
-  title: "Apply as an INR liquidity partner",
+  title: "Create an INR processing partner workspace",
   description:
-    "Join a private network that routes screened corporate demand to reviewed INR liquidity partners. Declare your corridors, capacity, banks and reserve — verification is manual and identity stays private until introduction.",
+    "Create a private INRP2P partner workspace for reviewed INR pay-in and pay-out operations. Submit a short profile, verify your email, and complete activation from the dashboard.",
   alternates: { canonical: "/apply" },
 };
 
 export default function ApplyPage() {
   return (
     <FormShell
-      eyebrow="Partner application"
-      title="Apply to join the network."
-      sub="We route screened corporate demand to reviewed liquidity partners — no public listing, no cold inbound. Tell us exactly what you run: corridors, banks, capacity, hours. Verification is manual, and your identity stays private until an introduction is made."
-      facts={["~4 minute application", "No application fee", "Private until introduced"]}
+      eyebrow="INR processing partner"
+      title="Create your partner workspace."
+      sub="Tell us who operates the desk and what you can process. Your workspace is created after this short application; live orders remain locked until review, reserve and payment-account activation are complete."
+      facts={["One short application", "Workspace created first", "Private manual approval"]}
       wide
     >
       <ApplyForm />

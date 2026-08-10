@@ -295,7 +295,7 @@ export async function submitPartnerApplication(
   const existing = await db.user.findUnique({ where: { email: account.data.email } });
   if (existing) {
     return {
-      error: "An account already exists for this email. Log in to view your application status.",
+      error: "This email already has an INRP2P account. Log in, or contact operations if you need partner access added to an existing company account.",
     };
   }
 
