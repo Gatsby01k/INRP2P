@@ -50,5 +50,5 @@ export function partnerProgramLevel(value?: string | null): PartnerProgramLevel 
 }
 
 export function partnerOrderCommission(amountInr: number, level: PartnerProgramLevel) {
-  return Math.round((amountInr * level.commissionRate) / 100);
+  return Math.round(((amountInr * level.commissionRate) / 100) * 100) / 100;
 }

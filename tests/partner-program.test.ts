@@ -18,6 +18,7 @@ test("partner commission preview follows the selected level", () => {
     PARTNER_PROGRAM_LEVELS.map((level) => partnerOrderCommission(amount, level)),
     [1_000, 1_250, 1_500, 2_000],
   );
+  assert.equal(partnerOrderCommission(8_750, partnerProgramLevel("VERIFIED")), 109.38);
 });
 
 test("each operating level requires a reserve equal to its monthly base", () => {
