@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Partner home" };
 export const dynamic = "force-dynamic";
 
 const STATUS_COPY: Record<string, string> = {
-  APPLIED: "Your workspace is active. Complete verification so operations can review your desk.",
+  APPLIED: "Your workspace is active. Explore the order queue and confirm your operating reserve when you are ready to start.",
   UNDER_REVIEW: "Your partner review is in progress. Watch this page for the next request from operations.",
   VERIFIED: "Your partner profile is approved. Complete any remaining activation steps to receive eligible orders.",
   LIMITED: "Your profile is approved with operating limits. Only eligible orders inside those limits will appear.",
@@ -32,15 +32,11 @@ type NextAction = {
 };
 
 async function loadProcessingSummary(partnerId: string, today: Date) {
-  const [account, rails, deposits, orders, completedToday] = await Promise.all([
+  const [account, rails, orders, completedToday] = await Promise.all([
     db.partnerProcessingAccount.findUnique({ where: { partnerId } }),
     db.partnerPaymentRail.findMany({
       where: { partnerId },
       select: { status: true },
-    }),
-    db.partnerDeposit.findMany({
-      where: { partnerId, status: "CONFIRMED" },
-      select: { amount: true, actualAmount: true },
     }),
     db.processingOrder.findMany({
       where: { partnerId },
@@ -58,7 +54,7 @@ async function loadProcessingSummary(partnerId: string, today: Date) {
     }),
   ]);
 
-  return { account, rails, deposits, orders, completedToday };
+  return { account, rails, orders, completedToday };
 }
 
 export default async function PartnerHomePage({
@@ -100,19 +96,25 @@ export default async function PartnerHomePage({
   let processing: Awaited<ReturnType<typeof loadProcessingSummary>> = {
     account: null,
     rails: [],
-    deposits: [],
     orders: [],
     completedToday: [],
   };
   let processingUnavailable = false;
+  let confirmedReserve = 0;
 
   try {
-    processing = await loadProcessingSummary(partner.id, today);
+    const deposits = await db.partnerDeposit.findMany({
+      where: { partnerId: partner.id, status: "CONFIRMED" },
+      select: { amount: true, actualAmount: true },
+    });
+    confirmedReserve = deposits.reduce(
+      (sum, deposit) => sum + Number((deposit.actualAmount ?? deposit.amount).toString()),
+      0,
+    );
   } catch (cause) {
-    processingUnavailable = true;
     await logError({
       error: cause,
-      source: "page:/partner:processing-summary",
+      source: "page:/partner:reserve-summary",
       severity: "ERROR",
       url: "/partner",
       userId: user.id,
@@ -120,13 +122,25 @@ export default async function PartnerHomePage({
     });
   }
 
+  if (confirmedReserve > 0) {
+    try {
+      processing = await loadProcessingSummary(partner.id, today);
+    } catch (cause) {
+      processingUnavailable = true;
+      await logError({
+        error: cause,
+        source: "page:/partner:processing-summary",
+        severity: "ERROR",
+        url: "/partner",
+        userId: user.id,
+        meta: { partnerId: partner.id },
+      });
+    }
+  }
+
   const verification = partner.verificationCases[0] ?? null;
   const approved = partner.status === "VERIFIED" || partner.status === "LIMITED";
   const activeRailCount = processing.rails.filter((rail) => rail.status === "ACTIVE").length;
-  const confirmedReserve = processing.deposits.reduce(
-    (sum, deposit) => sum + Number((deposit.actualAmount ?? deposit.amount).toString()),
-    0,
-  );
   const processingEnabled = !processingUnavailable && Boolean(processing.account?.enabled);
   const activeOrders = processing.orders.filter((order) =>
     ["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"].includes(order.status),
@@ -142,12 +156,13 @@ export default async function PartnerHomePage({
 
   const setup = [
     { label: "Application submitted", complete: true },
-    { label: "Partner verification", complete: approved },
     { label: "Operating reserve", complete: confirmedReserve > 0 },
+    { label: "Partner verification", complete: approved },
     { label: "Payment account approved", complete: activeRailCount > 0 },
     { label: "INR order limit enabled", complete: processingEnabled },
   ];
   const completedSetup = setup.filter((item) => item.complete).length;
+  const nextSetupIndex = setup.findIndex((item) => !item.complete);
 
   let nextAction: NextAction;
   if (partner.status === "REJECTED" || partner.status === "SUSPENDED") {
@@ -157,11 +172,20 @@ export default async function PartnerHomePage({
       body: STATUS_COPY[partner.status],
       tone: "rose",
     };
-  } else if (!verification) {
+  } else if (confirmedReserve <= 0) {
     nextAction = {
       eyebrow: "Step 2 of 5",
-      title: "Start partner verification",
-      body: "Prepare identity, bank and operating evidence. The guided checklist takes about five minutes to begin.",
+      title: "Choose an order and activate your reserve",
+      body: "Open the preview queue, choose your operating level and start from any sample order. Live work unlocks after reserve confirmation and review.",
+      href: "/partner/processing",
+      label: "Browse orders",
+      tone: "gold",
+    };
+  } else if (!verification) {
+    nextAction = {
+      eyebrow: "Step 3 of 5",
+      title: "Complete partner verification",
+      body: "Your reserve is in place. Submit identity, bank and operating evidence so operations can approve live access.",
       href: "/partner/verification",
       label: "Start verification",
       tone: "gold",
@@ -183,15 +207,6 @@ export default async function PartnerHomePage({
       href: "/partner",
       label: "Retry workspace",
       tone: "rose",
-    };
-  } else if (confirmedReserve <= 0) {
-    nextAction = {
-      eyebrow: "Step 3 of 5",
-      title: "Confirm your operating reserve",
-      body: "Create a reserve instruction and submit the transfer reference for operations review.",
-      href: "/partner/deposit",
-      label: "Open reserve setup",
-      tone: "gold",
     };
   } else if (activeRailCount === 0) {
     nextAction = {
@@ -235,11 +250,9 @@ export default async function PartnerHomePage({
         title={partner.displayName}
         sub={`${partner.reference} · ${STATUS_COPY[partner.status]}`}
         actions={
-          processingEnabled ? (
-            <Link href="/partner/processing" className="btn btn-gold btn-sm">
-              Open orders
-            </Link>
-          ) : null
+          <Link href="/partner/processing" className="btn btn-gold btn-sm">
+            {processingEnabled ? "Open orders" : "Preview orders"}
+          </Link>
         }
       />
 
@@ -285,7 +298,7 @@ export default async function PartnerHomePage({
             <li key={item.label} data-complete={item.complete ? "true" : undefined}>
               <span>{item.complete ? "✓" : index + 1}</span>
               <p>{item.label}</p>
-              <small>{item.complete ? "Complete" : index === completedSetup ? "Next" : "Locked"}</small>
+              <small>{item.complete ? "Complete" : index === nextSetupIndex ? "Next" : "Locked"}</small>
             </li>
           ))}
         </ol>

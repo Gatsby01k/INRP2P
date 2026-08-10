@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { PartnerDeposit } from "@prisma/client";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createPartnerDeposit, submitPartnerDepositTransaction } from "@/app/actions/deposits";
 import { SubmitButton } from "@/components/submit-button";
@@ -12,6 +13,7 @@ import { ensurePartnerDepositLedger } from "@/lib/deposit-ledger";
 import { db } from "@/lib/db";
 import { logError } from "@/lib/error-log";
 import { fmtDateTime } from "@/lib/format";
+import { PARTNER_PROGRAM_LEVELS, partnerProgramLevel } from "@/lib/partner-program";
 
 export const metadata: Metadata = { title: "USDT reserve" };
 export const dynamic = "force-dynamic";
@@ -81,10 +83,12 @@ function TransferAction({ item }: { item: PartnerDeposit }) {
 export default async function PartnerDepositPage({
   searchParams,
 }: {
-  searchParams: Promise<{ notice?: string; error?: string }>;
+  searchParams: Promise<{ notice?: string; error?: string; plan?: string; order?: string }>;
 }) {
   const [user, flash] = await Promise.all([requireRole("PARTNER"), searchParams]);
   if (!user.partner) redirect("/login");
+  const selectedLevel = partnerProgramLevel(flash.plan);
+  const sourceOrder = /^PX-(?:IN|OUT)-\d{4}$/.test(flash.order ?? "") ? flash.order : null;
 
   let deposits: PartnerDeposit[] = [];
   let ledgerUnavailable = false;
@@ -104,10 +108,43 @@ export default async function PartnerDepositPage({
   return (
     <>
       <PageHeader
-        title="USDT reserve"
-        sub="Fund your agreed operating reserve on TRON and submit the transaction for operator review."
+        title={reserve > 0 ? "Operating reserve" : "Activate your order desk"}
+        sub={reserve > 0
+          ? "Review your confirmed reserve and transfer history."
+          : "Choose your level, create the official reserve instruction and submit the transfer for review."}
       />
-      <Flash {...flash} />
+      <Flash notice={flash.notice} error={flash.error} />
+
+      {reserve <= 0 ? (
+        <section className="mb-4 overflow-hidden rounded-2xl border border-[#07152e]/10 bg-white shadow-card">
+          <div className="grid gap-5 bg-[#07152e] px-5 py-5 text-white sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-gold-400/25 bg-gold-400/10 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-gold-300">Step 1 · Reserve activation</span>
+                {sourceOrder ? <span className="font-mono text-[10px] text-white/45">From sample order {sourceOrder}</span> : null}
+              </div>
+              <h2 className="mt-3 text-xl font-semibold tracking-[-0.025em]">Activate {selectedLevel.name}</h2>
+              <p className="mt-1 max-w-2xl text-xs leading-5 text-white/55">Create a reserve instruction below. After the transfer is confirmed, operations completes account review and assigns your live INR order limit.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 lg:min-w-[310px]">
+              <div className="bg-[#07152e] px-4 py-3"><p className="text-[9px] uppercase tracking-[0.12em] text-white/35">Monthly base</p><p className="mt-1 text-lg font-semibold">{selectedLevel.monthlyBaseUsdt.toLocaleString("en-US")} <span className="text-[9px] text-white/40">USDT</span></p></div>
+              <div className="bg-[#07152e] px-4 py-3"><p className="text-[9px] uppercase tracking-[0.12em] text-white/35">Commission</p><p className="mt-1 text-lg font-semibold text-emerald-300">{selectedLevel.commissionRate}%</p></div>
+            </div>
+          </div>
+          <div className="grid gap-px bg-black/[0.06] sm:grid-cols-4">
+            {PARTNER_PROGRAM_LEVELS.map((level) => (
+              <Link
+                key={level.code}
+                href={`/partner/deposit?plan=${level.code}${sourceOrder ? `&order=${sourceOrder}` : ""}`}
+                className={`flex items-center justify-between gap-3 bg-white px-4 py-3 transition hover:bg-[#fbf8f2] ${level.code === selectedLevel.code ? "shadow-[inset_0_-2px_0_#efa12f]" : ""}`}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-800">{level.name}</span>
+                <span className="text-[10px] font-semibold tabular-nums text-slate-400">{level.commissionRate}%</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {ledgerUnavailable ? (
         <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-xs leading-relaxed text-amber-900">
@@ -154,6 +191,8 @@ export default async function PartnerDepositPage({
                 </div>
               </div>
               <form action={createPartnerDeposit} className="mt-5">
+                <input type="hidden" name="programLevel" value={selectedLevel.code} />
+                {sourceOrder ? <input type="hidden" name="sourceOrder" value={sourceOrder} /> : null}
                 <label className="lbl" htmlFor="deposit-amount">Amount</label>
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_230px] sm:items-stretch">
                   <div className="relative">
@@ -165,7 +204,7 @@ export default async function PartnerDepositPage({
                     pendingLabel="Creating…"
                     disabled={!walletAddress}
                   >
-                    Create instruction →
+                    {reserve > 0 ? "Create instruction →" : `Activate ${selectedLevel.name} →`}
                   </SubmitButton>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-500">10–1,000,000 USDT · up to 6 decimals</p>

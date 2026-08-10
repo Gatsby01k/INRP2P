@@ -18,6 +18,7 @@ export default async function PartnerLayout({
       nav={[
         { href: "/partner", label: "Home", exact: true },
         { href: "/partner/processing", label: "Orders" },
+        { href: "/partner/deposit", label: "Activate / Reserve" },
         { href: "/partner/capacity", label: "Availability" },
         { href: "/partner/verification", label: "Verification" },
         { href: "/partner/profile", label: "Profile" },
