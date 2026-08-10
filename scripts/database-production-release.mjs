@@ -41,6 +41,10 @@ async function runtimeSchemaReady() {
   const rows = await runtimeDb.$queryRawUnsafe(`
     SELECT
       to_regclass('public."PartnerDeposit"') IS NOT NULL AS "tableReady",
+      to_regclass('public."ProcessingOrder"') IS NOT NULL AS "processingOrderReady",
+      to_regclass('public."PartnerProcessingAccount"') IS NOT NULL AS "processingAccountReady",
+      to_regclass('public."PartnerPaymentRail"') IS NOT NULL AS "paymentRailReady",
+      to_regclass('public."ProcessingSettlement"') IS NOT NULL AS "settlementReady",
       EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public'
@@ -48,7 +52,12 @@ async function runtimeSchemaReady() {
           AND column_name = 'destinationAddress'
       ) AS "walletColumnReady"
   `);
-  return rows[0]?.tableReady === true && rows[0]?.walletColumnReady === true;
+  return rows[0]?.tableReady === true &&
+    rows[0]?.walletColumnReady === true &&
+    rows[0]?.processingOrderReady === true &&
+    rows[0]?.processingAccountReady === true &&
+    rows[0]?.paymentRailReady === true &&
+    rows[0]?.settlementReady === true;
 }
 
 try {
@@ -60,7 +69,7 @@ try {
     });
   }
   if (!(await runtimeSchemaReady())) {
-    throw new Error("Production database migration verification failed: PartnerDeposit schema is still missing from the runtime database.");
+    throw new Error("Production database migration verification failed: reserve or processing tables are missing from the runtime database.");
   }
 } finally {
   await runtimeDb.$disconnect();

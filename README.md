@@ -26,12 +26,15 @@ wallet seed phrase or private key.
 - Match offers with accept/decline/expiry flow; no automated financial decision.
 - Incident tracking and audit events across material network operations.
 - Signed, replay-resistant inbound webhook handling for notification integrations.
+- Reserve-controlled merchant processing desk with separate pay-in and pay-out state
+  machines, reviewed payment rails, atomic order assignment, UTR/reference capture,
+  disputes, exposure locking and settlement reconciliation.
 - Health endpoint, scheduled maintenance hook, security headers and CI quality gate.
 - Public landing page focused on the operating problem, controls and private-beta CTA.
 
 ## Stack
 
-Next.js 15 App Router, React 19, TypeScript, Prisma 6, PostgreSQL, Tailwind CSS,
+Next.js 16 App Router, React 19, TypeScript, Prisma 6, PostgreSQL, Tailwind CSS,
 Zod and database-backed opaque sessions.
 
 Use Node.js 20 or newer.
@@ -70,7 +73,7 @@ lint, static types, deterministic unit tests and a production Next.js build.
 ## Database migrations
 
 Fresh databases can run `npm run db:deploy` directly. The repository contains a
-complete baseline followed by the private-network operating-system migration.
+complete baseline followed by private-network, verification, reserve and live-processing migrations.
 
 For a database created by an older version of this application, first take a
 verified backup and compare its schema with the baseline. Mark the baseline as
@@ -100,6 +103,9 @@ The minimum launch configuration is:
 - A high-entropy `CRON_SECRET` if the scheduled maintenance route is enabled.
 - Private S3 + KMS credentials before collecting verification evidence.
 - A checksum-valid public `USDT_TRC20_DEPOSIT_ADDRESS` before enabling partner reserves.
+- A stable base64 32-byte `PROCESSING_DATA_KEY` before storing live payment-rail or
+  beneficiary data. Back up this key in the production secret manager; never rotate it
+  without a planned data re-encryption migration.
 - Real operator credentials stored in a password manager, not in source control.
 
 See `.env.example` for every supported integration and [DEPLOYMENT.md](DEPLOYMENT.md)
@@ -115,6 +121,26 @@ for the release runbook.
 6. The operator sends a time-bounded offer to selected partners.
 7. The partner accepts or declines; the operator controls any real-world introduction.
 8. Incidents, evidence decisions and state changes remain in the audit history.
+
+## Live merchant processing flow
+
+1. A partner adds UPI or bank rails. Full destinations are encrypted and stay pending
+   until an operator records a review decision.
+2. After reserve confirmation, the operator enables the partner and sets the hard INR
+   concurrent-exposure limit plus pay-in/pay-out fee schedule.
+3. A company releases a real pay-in or pay-out order with its own merchant reference.
+4. An eligible partner takes the order. Assignment and exposure locking happen in one
+   serializable database transaction, so two traders cannot take the same order.
+5. Pay-in closes only after the company records the payer reference and the partner
+   confirms the exact INR receipt. Pay-out closes only after the partner records a UTR
+   or payment reference and the company confirms delivery.
+6. A dispute keeps exposure locked until an operator records the resolution.
+7. Completed orders are grouped by company and partner into a settlement batch. Gross
+   pay-in, gross pay-out, partner fee and net INR position remain separately visible.
+
+INRP2P records and controls this operating workflow. Transfers still occur through the
+parties' approved external bank, UPI or settlement rails; the application does not hold
+bank credentials or private wallet keys.
 
 ## Security boundary
 

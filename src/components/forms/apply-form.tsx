@@ -147,6 +147,7 @@ export function ApplyForm() {
   const [snap, setSnap] = useState<Snap>(emptySnap);
   const [draftSaved, setDraftSaved] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [turnstileEpoch, setTurnstileEpoch] = useState(0);
 
   const formRef = useRef<HTMLFormElement>(null);
   const stepRef0 = useRef<HTMLDivElement>(null);
@@ -160,9 +161,10 @@ export function ApplyForm() {
   useEffect(() => {
     if (!state.error && !Object.keys(fe).length) return;
     const hit = Object.keys(fe).map((k) => STEP_OF_FIELD[k] ?? 0);
-    setStep(hit.length ? Math.min(...hit) : 0);
+    setStep(hit.length ? Math.min(...hit) : STEPS.length - 1);
     setMaxStep(STEPS.length - 1);
     setSnap(readSnap(formRef.current));
+    setTurnstileEpoch((value) => value + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
@@ -502,7 +504,7 @@ export function ApplyForm() {
               </ReviewSection>
             </FormSection>
 
-            <TurnstileField />
+            {step === STEPS.length - 1 ? <TurnstileField resetKey={turnstileEpoch} /> : null}
             <FormError message={state.error} />
 
             <div className="mt-5 flex flex-col-reverse items-start gap-4 sm:flex-row sm:items-center sm:justify-between">

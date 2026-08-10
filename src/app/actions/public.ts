@@ -76,7 +76,6 @@ export async function submitCompanyRequest(
   // Honeypot — bots fill hidden fields; pretend success without writing.
   if (str(formData, "website_hp")) redirect("/request/submitted?ref=received");
   const identity = await publicIdentity();
-  if (!(await verifyTurnstile(str(formData, "cf-turnstile-response"), identity))) return { fieldErrors: {}, error: "Security check failed. Refresh and try again." };
   if (!(await consumeRateLimit("company-request", identity, 5, 60 * 60 * 1000))) return { fieldErrors: {}, error: "Too many submissions. Try again later." };
 
   const session = await getSession();
@@ -119,16 +118,8 @@ export async function submitCompanyRequest(
   }
   const data = parsed.data;
 
-  let companyId: string;
-  let userId: string | null = null;
-  let actor = data.companyName;
-  let newAccount: { id: string; email: string } | null = null;
-
-  if (loggedInCompany) {
-    companyId = loggedInCompany.id;
-    userId = session!.user.id;
-    actor = loggedInCompany.companyName;
-  } else {
+  let accountEmail: string | null = null;
+  if (!loggedInCompany) {
     const account = emailOnlySchema.safeParse({ email: str(formData, "email") });
     if (!account.success) {
       return {
@@ -144,6 +135,23 @@ export async function submitCompanyRequest(
           "An account already exists for this email. Log in first, then submit the request from your workspace.",
       };
     }
+    accountEmail = account.data.email;
+  }
+
+  if (!(await verifyTurnstile(str(formData, "cf-turnstile-response")))) {
+    return { fieldErrors: {}, error: "Security check expired. Complete it again and resubmit." };
+  }
+
+  let companyId: string;
+  let userId: string | null = null;
+  let actor = data.companyName;
+  let newAccount: { id: string; email: string } | null = null;
+
+  if (loggedInCompany) {
+    companyId = loggedInCompany.id;
+    userId = session!.user.id;
+    actor = loggedInCompany.companyName;
+  } else {
     // No one invents a password mid-form — it's generated here and shown once
     // on the confirmation page, right after the account is already signed in.
     const plainPassword = generateAccessPassword();
@@ -151,7 +159,7 @@ export async function submitCompanyRequest(
     const referredBy = await referredByCode();
     const created = await db.user.create({
       data: {
-        email: account.data.email,
+        email: accountEmail!,
         passwordHash,
         mustSetPassword: true,
         name: data.contactName,
@@ -173,7 +181,7 @@ export async function submitCompanyRequest(
     });
     companyId = created.company!.id;
     userId = created.id;
-    newAccount = { id: created.id, email: account.data.email };
+    newAccount = { id: created.id, email: accountEmail! };
     // A single fast update, awaited directly (not after()) so the referral
     // code already exists by the time this account's workspace renders its
     // "your referral link" card.
@@ -241,7 +249,6 @@ export async function submitPartnerApplication(
 ): Promise<ActionState> {
   if (str(formData, "website_hp")) redirect("/apply/submitted?ref=received");
   const identity = await publicIdentity();
-  if (!(await verifyTurnstile(str(formData, "cf-turnstile-response"), identity))) return { fieldErrors: {}, error: "Security check failed. Refresh and try again." };
   if (!(await consumeRateLimit("partner-application", identity, 3, 60 * 60 * 1000))) return { fieldErrors: {}, error: "Too many submissions. Try again later." };
 
   const session = await getSession();
@@ -290,6 +297,10 @@ export async function submitPartnerApplication(
     return {
       error: "An account already exists for this email. Log in to view your application status.",
     };
+  }
+
+  if (!(await verifyTurnstile(str(formData, "cf-turnstile-response")))) {
+    return { fieldErrors: {}, error: "Security check expired. Complete it again and resubmit." };
   }
 
   const data = parsed.data;

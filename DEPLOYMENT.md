@@ -24,6 +24,8 @@ Required for a real beta:
 - strong admin seed credentials;
 - a random `CRON_SECRET` for scheduled maintenance;
 - a private S3/KMS evidence vault before evidence collection.
+- a base64 32-byte `PROCESSING_DATA_KEY` before enabling merchant processing. Store and
+  back it up as a long-lived encryption key; do not replace it during ordinary deploys.
 
 Provider, messaging, fee-collection and operator-AI integrations are optional.
 Unconfigured verification providers explicitly fall back to manual review. Core
@@ -78,6 +80,9 @@ Deploy the immutable release, then verify:
 - evidence upload uses KMS headers and download is an attachment-only short URL;
 - webhook signatures fail when altered and duplicate events do not reprocess;
 - audit entries exist for every material state change.
+- a pending payment rail requires operator approval before it can receive pay-ins;
+- two simultaneous order claims result in one assignment only, with matching locked exposure;
+- pay-in, pay-out, dispute resolution and settlement batching complete end to end.
 
 Do this first in staging with synthetic identities and files. Never use demo data as
 public evidence of traction.
@@ -89,6 +94,12 @@ Call `/api/cron/watchdogs` on a schedule with:
 ```text
 Authorization: Bearer <CRON_SECRET>
 ```
+
+For tighter queue housekeeping, call `/api/cron/processing` every five minutes with the
+same authorization header from a scheduler supported by your deployment plan. It is not
+placed in `vercel.json`, so a Vercel Hobby deployment is not rejected for cron frequency;
+the existing daily watchdog still performs the same expiry pass, and every claim checks
+the exact expiry time server-side.
 
 Monitor `/api/health`, application error rate, email delivery, database connections,
 backup freshness and webhook failures. Alert an operator; never expose detailed

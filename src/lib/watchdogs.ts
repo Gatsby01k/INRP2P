@@ -370,6 +370,35 @@ export async function checkCoverageGap(request: CoverageGapRequest) {
   }
 }
 
+/* Live processing queue expiry. Only unassigned orders expire automatically;
+   once a trader has taken an order, its exposure remains locked until a real
+   participant or operator records the outcome. */
+export async function runProcessingOrderExpiryWatchdog() {
+  const expired = await db.processingOrder.findMany({
+    where: { status: "AVAILABLE", expiresAt: { lte: new Date() } },
+    select: { id: true, reference: true, companyId: true },
+    take: 500,
+  });
+  let changed = 0;
+  for (const order of expired) {
+    const updated = await db.$transaction(async (tx) => {
+      const result = await tx.processingOrder.updateMany({
+        where: { id: order.id, status: "AVAILABLE" },
+        data: { status: "EXPIRED", failureReason: "Queue assignment window expired", version: { increment: 1 } },
+      });
+      if (!result.count) return false;
+      await tx.processingOrderEvent.create({
+        data: { orderId: order.id, fromStatus: "AVAILABLE", toStatus: "EXPIRED", actorLabel: "Processing watchdog", actorRole: "ADMIN", note: "Order expired before partner assignment." },
+      });
+      return true;
+    });
+    if (!updated) continue;
+    await audit({ action: "processing.order_expired", entityType: "ProcessingOrder", entityId: order.id, actorLabel: "Processing watchdog", meta: { reference: order.reference, companyId: order.companyId } });
+    changed++;
+  }
+  return { checked: expired.length, changed };
+}
+
 /* ── 7. Auto-suggest matches ──────────────────────────────────────────────
    Also fired synchronously at submission time, alongside checkCoverageGap —
    the flip side of the same signal. Where checkCoverageGap raises an alert

@@ -104,8 +104,8 @@ enum RevenueStatus {
 
 enum NoteVisibility {
   INTERNAL // admin only
-  COMPANY  // admin + owning company
-  PARTNER  // admin + owning partner
+  COMPANY // admin + owning company
+  PARTNER // admin + owning partner
 }
 
 enum IntroChannel {
@@ -221,31 +221,72 @@ enum DepositStatus {
   EXPIRED
 }
 
+enum ProcessingOrderType {
+  PAY_IN
+  PAY_OUT
+}
+
+enum ProcessingOrderStatus {
+  AVAILABLE
+  ASSIGNED
+  PAYMENT_MARKED
+  PAYOUT_SENT
+  COMPLETED
+  DISPUTED
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentRailType {
+  UPI
+  IMPS
+  NEFT
+  RTGS
+  BANK_TRANSFER
+}
+
+enum PaymentRailStatus {
+  PENDING_REVIEW
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum ProcessingSettlementStatus {
+  OPEN
+  READY
+  SUBMITTED
+  CONFIRMED
+  DISPUTED
+  CANCELLED
+}
+
 // ── Identity & access ────────────────────────────────────────────────────────
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  role         Role
-  createdAt    DateTime @default(now())
+  id               String   @id @default(cuid())
+  email            String   @unique
+  passwordHash     String
+  name             String
+  role             Role
+  createdAt        DateTime @default(now())
   // Personal Telegram push notifications (matches, introductions,
   // verification) — opt-in, separate from the internal ops alert chat.
   // Telegram won't let a bot message someone who hasn't messaged it first,
   // so linking works via a one-time code the user sends to the bot; the
   // webhook resolves that code back to this row and fills in the chat id.
   telegramChatId   String?
-  telegramLinkCode String? @unique
+  telegramLinkCode String?  @unique
 
   // TOTP two-factor auth (currently offered to ADMIN only). totpSecret is
   // written the moment setup starts but totpEnabled stays false until the
   // admin proves they can generate a real code — an unconfirmed secret
   // never gates login. Backup codes are bcrypt-hashed, single-use, removed
   // from the array the moment one is redeemed.
-  totpSecret       String?
-  totpEnabled      Boolean  @default(false)
-  totpBackupCodes  String[] @default([])
+  totpSecret      String?
+  totpEnabled     Boolean  @default(false)
+  totpBackupCodes String[] @default([])
 
   // Brute-force lockout — applies to every role, not just admin. Counts
   // consecutive bad passwords; a correct login resets it to zero. Once
@@ -256,34 +297,36 @@ model User {
   emailVerifiedAt     DateTime?
   mustSetPassword     Boolean   @default(false)
 
-  sessions Session[]
-  company  CompanyProfile?
-  partner  PartnerProfile?
-  twoFactorChallenges TwoFactorChallenge[]
-  notifications Notification[]
+  sessions                Session[]
+  company                 CompanyProfile?
+  partner                 PartnerProfile?
+  twoFactorChallenges     TwoFactorChallenge[]
+  notifications           Notification[]
   emailVerificationTokens EmailVerificationToken[]
-  passwordResetTokens PasswordResetToken[]
+  passwordResetTokens     PasswordResetToken[]
 }
 
 model EmailVerificationToken {
-  id String @id @default(cuid())
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String @unique
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
-  usedAt DateTime?
-  createdAt DateTime @default(now())
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
   @@index([userId, expiresAt])
 }
 
 model PasswordResetToken {
-  id String @id @default(cuid())
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String @unique
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   expiresAt DateTime
-  usedAt DateTime?
-  createdAt DateTime @default(now())
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
   @@index([userId, expiresAt])
 }
 
@@ -354,11 +397,11 @@ model CompanyProfile {
   // retainerNextRenewal is advanced by the retainer-renewal watchdog each time
   // it fires; retainerActive is the on/off switch operators use, so a paused
   // retainer keeps its config without being deleted.
-  retainerActive       Boolean   @default(false)
-  retainerAmount       Decimal?  @db.Decimal(18, 2)
-  retainerCurrency     Currency?
-  retainerDayOfMonth   Int?
-  retainerNextRenewal  DateTime?
+  retainerActive      Boolean   @default(false)
+  retainerAmount      Decimal?  @db.Decimal(18, 2)
+  retainerCurrency    Currency?
+  retainerDayOfMonth  Int?
+  retainerNextRenewal DateTime?
 
   // Referral program (see src/lib/referral.ts) — referralCode is this
   // company's own shareable code (generated once, at signup), referredByCode
@@ -366,37 +409,39 @@ model CompanyProfile {
   // see src/lib/referral-capture.ts). Both nullable: referredByCode is
   // usually null (most signups aren't referred), and referralCode is only
   // ever null for accounts created before this feature existed.
-  referralCode     String? @unique
-  referredByCode   String?
+  referralCode   String? @unique
+  referredByCode String?
 
-  requests LiquidityRequest[]
-  revenues RevenueRecord[]
-  organization Organization?
+  requests              LiquidityRequest[]
+  revenues              RevenueRecord[]
+  organization          Organization?
+  processingOrders      ProcessingOrder[]
+  processingSettlements ProcessingSettlement[]
 }
 
 model LiquidityRequest {
-  id               String        @id @default(cuid())
-  reference        String        @unique // REQ-0001
-  companyId        String
-  company          CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  direction        Direction
-  requestType      RequestType   @default(INR_PAYOUTS)
-  dailyVolumeBand  String
-  monthlyVolumeBand String
-  ticketSize        String?
-  urgency           Urgency      @default(STANDARD)
-  countriesInvolved String?
-  banks            String[]
-  methods          String[]
-  requiredSpeed    String
-  jurisdiction     String
-  kycReadiness     String
-  kycNotes         String?
+  id                  String         @id @default(cuid())
+  reference           String         @unique // REQ-0001
+  companyId           String
+  company             CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  direction           Direction
+  requestType         RequestType    @default(INR_PAYOUTS)
+  dailyVolumeBand     String
+  monthlyVolumeBand   String
+  ticketSize          String?
+  urgency             Urgency        @default(STANDARD)
+  countriesInvolved   String?
+  banks               String[]
+  methods             String[]
+  requiredSpeed       String
+  jurisdiction        String
+  kycReadiness        String
+  kycNotes            String?
   partnerRequirements String?
-  notes            String?
-  status           RequestStatus @default(SUBMITTED)
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  notes               String?
+  status              RequestStatus  @default(SUBMITTED)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
 
   // AI pre-flight triage — generated automatically right after submission
   // (see runRequestTriage in src/lib/ai-triage.ts), not on a click. Null
@@ -404,14 +449,14 @@ model LiquidityRequest {
   // configured). aiFlagged is parsed from a machine-readable marker line in
   // the model's own output so the admin list can filter/sort on it without
   // re-reading prose every time.
-  aiTriageNote String?
-  aiFlagged    Boolean?
-  routingEnabled Boolean @default(true)
+  aiTriageNote   String?
+  aiFlagged      Boolean?
+  routingEnabled Boolean  @default(true)
 
-  matches   Match[]
-  notesList Note[]
-  documents DocumentRecord[]
-  revenues  RevenueRecord[]
+  matches     Match[]
+  notesList   Note[]
+  documents   DocumentRecord[]
+  revenues    RevenueRecord[]
   matchOffers MatchOffer[]
 
   @@index([status])
@@ -421,38 +466,38 @@ model LiquidityRequest {
 // ── Partners ─────────────────────────────────────────────────────────────────
 
 model PartnerProfile {
-  id                String        @id @default(cuid())
-  userId            String        @unique
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reference         String        @unique // PTR-0001
-  displayName       String
-  legalName         String?
-  contactName       String
-  telegram          String?
-  phone             String?
-  experienceBand    String
-  directions        Direction[]
-  banks             String[]
-  methods           String[]
-  dailyCapacityBand String
-  monthlyCapacityBand String?
-  minTicket           String?
-  maxTicket           String?
+  id                   String        @id @default(cuid())
+  userId               String        @unique
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reference            String        @unique // PTR-0001
+  displayName          String
+  legalName            String?
+  contactName          String
+  telegram             String?
+  phone                String?
+  experienceBand       String
+  directions           Direction[]
+  banks                String[]
+  methods              String[]
+  dailyCapacityBand    String
+  monthlyCapacityBand  String?
+  minTicket            String?
+  maxTicket            String?
   settlementPreference String?
-  workingHours      String
-  reserveBand       String
-  jurisdictions     String
-  operatingCountry    String?
-  complianceFlags   String[]
-  complianceNotes   String?
-  references          String?
-  riskNotes           String?
-  additionalComments  String?
-  status            PartnerStatus @default(APPLIED)
-  tier              PartnerTier @default(CANDIDATE)
-  verifiedAt        DateTime?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  workingHours         String
+  reserveBand          String
+  jurisdictions        String
+  operatingCountry     String?
+  complianceFlags      String[]
+  complianceNotes      String?
+  references           String?
+  riskNotes            String?
+  additionalComments   String?
+  status               PartnerStatus @default(APPLIED)
+  tier                 PartnerTier   @default(CANDIDATE)
+  verifiedAt           DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 
   // AI pre-flight triage — generated automatically right after the partner
   // applies (see runPartnerTriage in src/lib/ai-triage.ts), mirroring the
@@ -466,163 +511,175 @@ model PartnerProfile {
   referralCode   String? @unique
   referredByCode String?
 
-  matches   Match[]
-  notesList Note[]
-  documents DocumentRecord[]
-  networkConnections CompanyPartnerConnection[]
-  verificationCases VerificationCase[]
-  capacityPulses CapacityPulse[]
-  matchOffers MatchOffer[]
-  incidents Incident[]
-  deposits PartnerDeposit[]
+  matches               Match[]
+  notesList             Note[]
+  documents             DocumentRecord[]
+  networkConnections    CompanyPartnerConnection[]
+  verificationCases     VerificationCase[]
+  capacityPulses        CapacityPulse[]
+  matchOffers           MatchOffer[]
+  incidents             Incident[]
+  deposits              PartnerDeposit[]
+  processingAccount     PartnerProcessingAccount?
+  paymentRails          PartnerPaymentRail[]
+  processingOrders      ProcessingOrder[]
+  processingSettlements ProcessingSettlement[]
 
   @@index([status])
 }
 
 model Organization {
-  id String @id @default(cuid())
-  companyProfileId String @unique
-  companyProfile CompanyProfile @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
-  name String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 String                     @id @default(cuid())
+  companyProfileId   String                     @unique
+  companyProfile     CompanyProfile             @relation(fields: [companyProfileId], references: [id], onDelete: Cascade)
+  name               String
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
   partnerConnections CompanyPartnerConnection[]
-  verificationCases VerificationCase[]
-  matchOffers MatchOffer[]
+  verificationCases  VerificationCase[]
+  matchOffers        MatchOffer[]
+
   @@index([name])
 }
 
 model CompanyPartnerConnection {
-  id String @id @default(cuid())
+  id             String                  @id @default(cuid())
   organizationId String
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  partnerId String
-  partner PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  status NetworkConnectionStatus @default(INVITED)
-  approvedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  organization   Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  partnerId      String
+  partner        PartnerProfile          @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  status         NetworkConnectionStatus @default(INVITED)
+  approvedAt     DateTime?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+
   @@unique([organizationId, partnerId])
   @@index([partnerId, status])
 }
 
 model VerificationCase {
-  id String @id @default(cuid())
-  reference String @unique
+  id             String                 @id @default(cuid())
+  reference      String                 @unique
   organizationId String?
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  partnerId String?
-  partner PartnerProfile? @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  status VerificationCaseStatus @default(IN_PROGRESS)
-  riskLevel String?
-  decisionNote String?
-  decidedById String?
-  decidedAt DateTime?
-  expiresAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  checks VerificationCheck[]
-  evidence EvidenceArtifact[]
+  organization   Organization?          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  partnerId      String?
+  partner        PartnerProfile?        @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  status         VerificationCaseStatus @default(IN_PROGRESS)
+  riskLevel      String?
+  decisionNote   String?
+  decidedById    String?
+  decidedAt      DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+  checks         VerificationCheck[]
+  evidence       EvidenceArtifact[]
+
   @@index([status, createdAt])
   @@index([organizationId])
   @@index([partnerId])
 }
 
 model VerificationCheck {
-  id String @id @default(cuid())
+  id                 String                  @id @default(cuid())
   verificationCaseId String
-  verificationCase VerificationCase @relation(fields: [verificationCaseId], references: [id], onDelete: Cascade)
-  type String
-  provider String?
-  providerReference String?
-  status VerificationCheckStatus @default(PENDING)
-  summary String?
-  result Json?
-  reviewedById String?
-  reviewedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  verificationCase   VerificationCase        @relation(fields: [verificationCaseId], references: [id], onDelete: Cascade)
+  type               String
+  provider           String?
+  providerReference  String?
+  status             VerificationCheckStatus @default(PENDING)
+  summary            String?
+  result             Json?
+  reviewedById       String?
+  reviewedAt         DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
   @@unique([verificationCaseId, type])
   @@index([status])
 }
 
 model EvidenceArtifact {
-  id String @id @default(cuid())
+  id                 String             @id @default(cuid())
   verificationCaseId String
-  verificationCase VerificationCase @relation(fields: [verificationCaseId], references: [id], onDelete: Cascade)
-  kind EvidenceKind
-  title String
-  storageKey String @unique
-  mimeType String
-  byteSize Int
-  checksumSha256 String?
-  classification DataClassification @default(RESTRICTED)
-  status EvidenceStatus @default(PENDING)
-  uploadedById String
-  reviewedById String?
-  reviewedAt DateTime?
-  expiresAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  verificationCase   VerificationCase   @relation(fields: [verificationCaseId], references: [id], onDelete: Cascade)
+  kind               EvidenceKind
+  title              String
+  storageKey         String             @unique
+  mimeType           String
+  byteSize           Int
+  checksumSha256     String?
+  classification     DataClassification @default(RESTRICTED)
+  status             EvidenceStatus     @default(PENDING)
+  uploadedById       String
+  reviewedById       String?
+  reviewedAt         DateTime?
+  expiresAt          DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
   @@index([verificationCaseId, status])
   @@index([expiresAt])
 }
 
 model CapacityPulse {
-  id String @id @default(cuid())
-  partnerId String
-  partner PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  status CapacityStatus
-  direction Direction
-  availableBand String
-  minTicket String?
-  maxTicket String?
-  banks String[]
-  methods String[]
-  confirmedAt DateTime @default(now())
+  id             String         @id @default(cuid())
+  partnerId      String
+  partner        PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  status         CapacityStatus
+  direction      Direction
+  availableBand  String
+  minTicket      String?
+  maxTicket      String?
+  banks          String[]
+  methods        String[]
+  confirmedAt    DateTime       @default(now())
   availableUntil DateTime
-  createdAt DateTime @default(now())
+  createdAt      DateTime       @default(now())
+
   @@index([partnerId, confirmedAt])
   @@index([status, availableUntil])
 }
 
 model MatchOffer {
-  id String @id @default(cuid())
-  reference String @unique
-  requestId String
-  request LiquidityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  partnerId String
-  partner PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  id             String           @id @default(cuid())
+  reference      String           @unique
+  requestId      String
+  request        LiquidityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  partnerId      String
+  partner        PartnerProfile   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   organizationId String
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  status MatchOfferStatus @default(PENDING)
-  fitScore Int
-  reasonCodes String[]
-  capacityBand String?
-  termsSummary String?
-  expiresAt DateTime
-  respondedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         MatchOfferStatus @default(PENDING)
+  fitScore       Int
+  reasonCodes    String[]
+  capacityBand   String?
+  termsSummary   String?
+  expiresAt      DateTime
+  respondedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
   @@unique([requestId, partnerId])
   @@index([partnerId, status, expiresAt])
 }
 
 model Incident {
-  id String @id @default(cuid())
-  reference String @unique
-  partnerId String?
-  partner PartnerProfile? @relation(fields: [partnerId], references: [id], onDelete: SetNull)
-  severity IncidentSeverity
-  status IncidentStatus @default(OPEN)
-  category String
-  summary String
-  details String?
-  openedById String
+  id           String           @id @default(cuid())
+  reference    String           @unique
+  partnerId    String?
+  partner      PartnerProfile?  @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  severity     IncidentSeverity
+  status       IncidentStatus   @default(OPEN)
+  category     String
+  summary      String
+  details      String?
+  openedById   String
   resolvedById String?
-  resolvedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  resolvedAt   DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
   @@index([status, severity])
   @@index([partnerId])
 }
@@ -631,63 +688,208 @@ model Incident {
 // from configuration when an intent is created; private keys never enter the
 // application. A partner submits the on-chain TXID and an operator verifies it.
 model PartnerDeposit {
-  id String @id @default(cuid())
-  reference String @unique
-  partnerId String
-  partner PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Restrict)
-  amount Decimal @db.Decimal(18, 6)
-  actualAmount Decimal? @db.Decimal(18, 6)
-  currency Currency @default(USDT)
-  network String @default("TRC20")
-  status DepositStatus @default(AWAITING_PAYMENT)
-  provider String @default("DIRECT_TRC20")
-  destinationAddress String?
-  providerInvoiceId String? @unique
-  providerInvoiceUrl String?
-  providerPaymentId String?
-  providerStatus String?
-  transactionHash String? @unique
-  refundTransactionHash String? @unique
-  reviewedById String?
-  reviewNote String?
-  submittedAt DateTime?
-  confirmedAt DateTime?
-  refundedAt DateTime?
-  expiresAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String         @id @default(cuid())
+  reference             String         @unique
+  partnerId             String
+  partner               PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  amount                Decimal        @db.Decimal(18, 6)
+  actualAmount          Decimal?       @db.Decimal(18, 6)
+  currency              Currency       @default(USDT)
+  network               String         @default("TRC20")
+  status                DepositStatus  @default(AWAITING_PAYMENT)
+  provider              String         @default("DIRECT_TRC20")
+  destinationAddress    String?
+  providerInvoiceId     String?        @unique
+  providerInvoiceUrl    String?
+  providerPaymentId     String?
+  providerStatus        String?
+  transactionHash       String?        @unique
+  refundTransactionHash String?        @unique
+  reviewedById          String?
+  reviewNote            String?
+  submittedAt           DateTime?
+  confirmedAt           DateTime?
+  refundedAt            DateTime?
+  expiresAt             DateTime?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
   @@index([partnerId, createdAt])
   @@index([status, createdAt])
 }
 
+// Operator-approved processing exposure. The confirmed USDT deposit remains
+// the reserve ledger; this record controls how much live INR order exposure a
+// partner may hold at once. Assignment and exposure updates are serialized.
+model PartnerProcessingAccount {
+  id                String         @id @default(cuid())
+  partnerId         String         @unique
+  partner           PartnerProfile @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  enabled           Boolean        @default(false)
+  approvedLimitInr  Decimal        @default(0) @db.Decimal(18, 2)
+  lockedExposureInr Decimal        @default(0) @db.Decimal(18, 2)
+  payInFeeBps       Int            @default(0)
+  payOutFeeBps      Int            @default(0)
+  version           Int            @default(0)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([enabled])
+}
+
+// A partner-owned destination for collecting a pay-in. Full bank/UPI details
+// are encrypted at application level; list and admin views use masked fields.
+model PartnerPaymentRail {
+  id                String            @id @default(cuid())
+  reference         String            @unique
+  partnerId         String
+  partner           PartnerProfile    @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  type              PaymentRailType
+  label             String
+  bankName          String?
+  maskedDestination String
+  encryptedDetails  String
+  minTicketInr      Decimal?          @db.Decimal(18, 2)
+  maxTicketInr      Decimal?          @db.Decimal(18, 2)
+  dailyLimitInr     Decimal?          @db.Decimal(18, 2)
+  status            PaymentRailStatus @default(PENDING_REVIEW)
+  reviewedById      String?
+  reviewNote        String?
+  reviewedAt        DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  orders            ProcessingOrder[]
+
+  @@index([partnerId, status])
+  @@index([type, status])
+}
+
+// Merchant-originated INR order. This records orchestration, evidence and
+// settlement state; external banking rails still execute the actual transfer.
+model ProcessingOrder {
+  id                   String                 @id @default(cuid())
+  reference            String                 @unique
+  externalReference    String
+  companyId            String
+  company              CompanyProfile         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  partnerId            String?
+  partner              PartnerProfile?        @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  railId               String?
+  rail                 PartnerPaymentRail?    @relation(fields: [railId], references: [id], onDelete: SetNull)
+  settlementId         String?
+  settlement           ProcessingSettlement?  @relation(fields: [settlementId], references: [id], onDelete: SetNull)
+  type                 ProcessingOrderType
+  status               ProcessingOrderStatus  @default(AVAILABLE)
+  requestedRail        PaymentRailType
+  amountInr            Decimal                @db.Decimal(18, 2)
+  partnerFeeBps        Int                    @default(0)
+  partnerFeeInr        Decimal                @default(0) @db.Decimal(18, 2)
+  counterpartyLabel    String
+  encryptedPaymentData String
+  companyNote          String?
+  internalNote         String?
+  paymentReference     String?
+  disputeReason        String?
+  failureReason        String?
+  createdById          String
+  version              Int                    @default(0)
+  assignedAt           DateTime?
+  expiresAt            DateTime
+  paymentMarkedAt      DateTime?
+  payoutSentAt         DateTime?
+  completedAt          DateTime?
+  disputedAt           DateTime?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  events               ProcessingOrderEvent[]
+
+  @@unique([companyId, externalReference])
+  @@index([status, createdAt])
+  @@index([partnerId, status])
+  @@index([companyId, createdAt])
+  @@index([expiresAt, status])
+  @@index([settlementId])
+}
+
+model ProcessingOrderEvent {
+  id         String                 @id @default(cuid())
+  orderId    String
+  order      ProcessingOrder        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fromStatus ProcessingOrderStatus?
+  toStatus   ProcessingOrderStatus
+  actorId    String?
+  actorLabel String
+  actorRole  Role
+  note       String?
+  meta       Json?
+  createdAt  DateTime               @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// Reconciliation batch for one merchant/company and one processing partner.
+// Gross pay-in, gross pay-out and partner fees are kept separately so the
+// operator can review the net position before recording external settlement.
+model ProcessingSettlement {
+  id                   String                     @id @default(cuid())
+  reference            String                     @unique
+  companyId            String
+  company              CompanyProfile             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  partnerId            String
+  partner              PartnerProfile             @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  status               ProcessingSettlementStatus @default(OPEN)
+  periodStart          DateTime
+  periodEnd            DateTime
+  grossPayInInr        Decimal                    @default(0) @db.Decimal(18, 2)
+  grossPayOutInr       Decimal                    @default(0) @db.Decimal(18, 2)
+  partnerFeeInr        Decimal                    @default(0) @db.Decimal(18, 2)
+  netPositionInr       Decimal                    @default(0) @db.Decimal(18, 2)
+  settlementRate       Decimal?                   @db.Decimal(18, 6)
+  settlementAmountUsdt Decimal?                   @db.Decimal(18, 6)
+  transactionHash      String?
+  note                 String?
+  dueAt                DateTime?
+  submittedAt          DateTime?
+  confirmedAt          DateTime?
+  createdById          String
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  orders               ProcessingOrder[]
+
+  @@index([partnerId, status])
+  @@index([companyId, status])
+  @@index([createdAt])
+}
+
 model WebhookEvent {
-  id String @id @default(cuid())
-  provider String
-  externalId String
+  id          String   @id @default(cuid())
+  provider    String
+  externalId  String
   payloadHash String
   processedAt DateTime @default(now())
+
   @@unique([provider, externalId])
   @@index([processedAt])
 }
 
 model RateLimitState {
-  id String @id
-  count Int @default(0)
+  id          String   @id
+  count       Int      @default(0)
   windowStart DateTime
-  expiresAt DateTime
+  expiresAt   DateTime
+
   @@index([expiresAt])
 }
 
 // ── Matching & introductions ─────────────────────────────────────────────────
 
 model Match {
-  id                String      @id @default(cuid())
+  id                String           @id @default(cuid())
   requestId         String
   request           LiquidityRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   partnerId         String
   partner           PartnerProfile   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  status            MatchStatus @default(SUGGESTED)
+  status            MatchStatus      @default(SUGGESTED)
   adminNote         String?
   confidenceScore   Int?
   nextAction        String?
@@ -696,10 +898,10 @@ model Match {
   // persisted, computed on the fly). Shown to both operations and the
   // company. Null until an operator generates it once.
   aiExplanation     String?
-  releasedToCompany Boolean     @default(false)
-  releasedToPartner Boolean     @default(false)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  releasedToCompany Boolean          @default(false)
+  releasedToPartner Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   introductions Introduction[]
   revenues      RevenueRecord[]
@@ -710,23 +912,23 @@ model Match {
 }
 
 model Introduction {
-  id          String             @id @default(cuid())
-  matchId     String
-  match       Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  status      IntroductionStatus @default(PENDING)
-  channel     IntroChannel       @default(EMAIL)
-  summary     String?
-  outcome     String?
+  id           String             @id @default(cuid())
+  matchId      String
+  match        Match              @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  status       IntroductionStatus @default(PENDING)
+  channel      IntroChannel       @default(EMAIL)
+  summary      String?
+  outcome      String?
   followUpDate DateTime?
-  sentAt      DateTime?
-  respondedAt DateTime?
+  sentAt       DateTime?
+  respondedAt  DateTime?
   // Optional, admin-entered effective settlement rate (INR per 1 USDT) for
   // closed INR_TO_USDT / USDT_TO_INR deals — feeds the public reference-rate
   // index. Never required, never touches INR_PAYOUTS (no conversion rate
   // concept there), and is aggregated, not published per-deal.
-  settledRate Decimal?           @db.Decimal(10, 4)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  settledRate  Decimal?           @db.Decimal(10, 4)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   messages IntroductionMessage[]
 
@@ -739,14 +941,14 @@ model Introduction {
 // two sides are connected. Deliberately simple: no attachments, no threads,
 // just a flat timestamped log both sides and ops can see.
 model IntroductionMessage {
-  id             String       @id @default(cuid())
+  id             String         @id @default(cuid())
   introductionId String
-  introduction   Introduction @relation(fields: [introductionId], references: [id], onDelete: Cascade)
+  introduction   Introduction   @relation(fields: [introductionId], references: [id], onDelete: Cascade)
   authorId       String? // User.id — null only if the author account was later deleted
   authorLabel    String // denormalized: company name / partner display name / "Operator"
   authorSide     NoteVisibility // reuse COMPANY / PARTNER / INTERNAL(=operator) as the sender's side
   body           String
-  createdAt      DateTime     @default(now())
+  createdAt      DateTime       @default(now())
 
   @@index([introductionId])
 }
@@ -754,34 +956,34 @@ model IntroductionMessage {
 // ── Revenue ──────────────────────────────────────────────────────────────────
 
 model RevenueRecord {
-  id         String        @id @default(cuid())
+  id               String            @id @default(cuid())
   // Optional as of the retainer-billing feature: a MONTHLY_RETAINER record is
   // tied to a company directly (companyId below), not to any one request.
   // Every pre-existing/request-driven revenue record still sets requestId.
-  requestId  String?
-  request    LiquidityRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  companyId  String?
-  company    CompanyProfile? @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  matchId    String?
-  match      Match?        @relation(fields: [matchId], references: [id], onDelete: SetNull)
-  amount     Decimal       @db.Decimal(18, 2)
-  currency   Currency      @default(INR)
-  type       RevenueType   @default(CUSTOM)
-  payerType  String? // e.g. "Company", "Partner"
-  payerName  String?
-  basis      String? // e.g. "25 bps on first month volume", "fixed introduction fee"
-  status     RevenueStatus @default(POTENTIAL)
-  dueDate    DateTime?
-  invoicedAt DateTime?
-  paidAt     DateTime?
+  requestId        String?
+  request          LiquidityRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  companyId        String?
+  company          CompanyProfile?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  matchId          String?
+  match            Match?            @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  amount           Decimal           @db.Decimal(18, 2)
+  currency         Currency          @default(INR)
+  type             RevenueType       @default(CUSTOM)
+  payerType        String? // e.g. "Company", "Partner"
+  payerName        String?
+  basis            String? // e.g. "25 bps on first month volume", "fixed introduction fee"
+  status           RevenueStatus     @default(POTENTIAL)
+  dueDate          DateTime?
+  invoicedAt       DateTime?
+  paidAt           DateTime?
   // Razorpay Payment Links — collection of INRP2P's own service fee only,
   // never the underlying P2P trade funds between company and partner.
   // @unique so the webhook can look up the exact record with findUnique
   // instead of findFirst — guarantees it can never update the wrong row
   // even if duplicate ids were ever written by a bug or manual edit.
-  paymentLinkId  String? @unique // Razorpay's plink_xxx id
-  paymentLinkUrl String? // short_url — shareable link sent to the payer
-  paymentRef     String? // Razorpay's pay_xxx id once the link is paid
+  paymentLinkId    String?           @unique // Razorpay's plink_xxx id
+  paymentLinkUrl   String? // short_url — shareable link sent to the payer
+  paymentRef       String? // Razorpay's pay_xxx id once the link is paid
   // NOWPayments — non-custodial USDT collection for INRP2P's own fee when
   // the payer settles in crypto instead of INR. Same boundary as Razorpay:
   // only ever INRP2P's own commission, never the underlying P2P trade
@@ -790,8 +992,8 @@ model RevenueRecord {
   cryptoInvoiceId  String? // NOWPayments invoice id
   cryptoInvoiceUrl String? // invoice_url — shareable hosted payment link
   cryptoPaymentRef String? // NOWPayments payment_id once paid
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 
   @@index([status])
 }
@@ -799,9 +1001,9 @@ model RevenueRecord {
 // ── Notes & documents ────────────────────────────────────────────────────────
 
 model Note {
-  id          String         @id @default(cuid())
+  id          String            @id @default(cuid())
   body        String
-  visibility  NoteVisibility @default(INTERNAL)
+  visibility  NoteVisibility    @default(INTERNAL)
   authorLabel String // denormalized: "Operator", company name, partner name
   authorId    String?
   requestId   String?
@@ -810,25 +1012,25 @@ model Note {
   partner     PartnerProfile?   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
   matchId     String?
   match       Match?            @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
+  createdAt   DateTime          @default(now())
 
   @@index([requestId])
   @@index([partnerId])
 }
 
 model DocumentRecord {
-  id          String         @id @default(cuid())
+  id          String            @id @default(cuid())
   title       String
   url         String?
   note        String?
-  visibility  NoteVisibility @default(INTERNAL)
+  visibility  NoteVisibility    @default(INTERNAL)
   authorLabel String
   authorId    String?
   requestId   String?
   request     LiquidityRequest? @relation(fields: [requestId], references: [id], onDelete: Cascade)
   partnerId   String?
   partner     PartnerProfile?   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  createdAt   DateTime       @default(now())
+  createdAt   DateTime          @default(now())
 
   @@index([requestId])
   @@index([partnerId])

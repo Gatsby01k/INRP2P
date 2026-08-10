@@ -4,7 +4,7 @@ const SESSION_COOKIE = "inrp2p_session";
 
 // First gate: cookie presence. Role-level authorization happens server-side
 // in each workspace layout (and again inside every server action).
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value;
   if (!token) {
     const url = new URL("/login", req.url);
