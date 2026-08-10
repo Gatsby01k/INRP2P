@@ -59,15 +59,15 @@ Do not run the demo seed against production. For an isolated staging database:
 DEMO_PASSWORD='a-unique-staging-password' npm run db:seed:demo
 ```
 
-## Training Mode for walkthroughs
+## Demo Operations environment
 
-Training Mode provides one deterministic trader journey for onboarding, sales
-walkthroughs and screen recording. It is not public traction and does not represent
-historical customer activity. The scenario engine uses reserved `@inrp2p.demo`
-identities and rebuilds the same known state every time.
+Demo Operations provides a deterministic, realistic trader account for product
+demonstrations and operator walkthroughs. It is not public traction and does not
+represent historical customer activity. The controller uses reserved `@inrp2p.demo`
+identities and rebuilds the same known operating state every time.
 
 Create a separate Vercel project with a separate staging PostgreSQL database. Never
-enable Training Mode on the production deployment or point it at the production
+enable the demo environment on the production deployment or point it at the production
 database. Configure a non-production `PROCESSING_DATA_KEY`, then set:
 
 ```bash
@@ -84,23 +84,23 @@ npm run db:deploy
 npm run db:seed:training
 ```
 
-An operator can then open `/admin/training` and reset the account to one of five
-recording states: new trader, verification in progress, ready to activate, live desk
-ready or established desk. The partner signs in with `TRAINING_PARTNER_EMAIL` and the
+An operator can then open `/admin/training` (`Demo Operations` in the navigation) and
+load one of five operating states: application received, review in progress,
+activation ready, live shift or month-to-date desk. The partner signs in with `TRAINING_PARTNER_EMAIL` and the
 configured password. The company-side simulator uses `video-merchant@inrp2p.demo`
 with the same password when a merchant perspective is needed.
 
-Training safeguards are enforced in application code:
+Demo safeguards are enforced in application code:
 
-- a persistent Training Mode banner is shown in partner and company workspaces;
+- a persistent Demo data banner is shown in partner and company workspaces;
 - no destination wallet is issued and no blockchain transfer can be submitted;
-- real payment-rail entry is blocked for the training trader;
+- real payment-rail entry is blocked for the demo partner;
 - Telegram, WhatsApp, password-reset email and live dispute alerts are suppressed;
 - simulated reserve entries are excluded from the production deposit dashboard;
 - scenarios, orders, events and commissions are deterministic and resettable.
 
 Keep the banner visible in published material. Describe displayed income as
-“simulated commission in Training Mode”, never as real trader earnings. Use only
+“simulated commission in the demo environment”, never as real trader earnings. Use only
 synthetic names, UTRs, bank details and documents, and reset the scenario before each
 recording session.
 

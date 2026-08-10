@@ -12,11 +12,11 @@ import {
 import { TRAINING_HISTORY_ORDERS, TRAINING_QUEUE_ORDERS } from "@/lib/training-orders";
 
 const TRAINING_COMPANY_EMAIL = "video-merchant@inrp2p.demo";
-const TRAINING_PARTNER_REFERENCE = "TRN-PTR-VIDEO";
-const TRAINING_VERIFICATION_REFERENCE = "TRN-VER-VIDEO";
-const TRAINING_COMPANY_VERIFICATION_REFERENCE = "TRN-VER-MERCHANT";
-const TRAINING_DEPOSIT_REFERENCE = "TRN-DEP-VIDEO-01";
-const TRAINING_SETTLEMENT_REFERENCE = "TRN-SET-VIDEO-01";
+const TRAINING_PARTNER_REFERENCE = "DMO-PTR-001";
+const TRAINING_VERIFICATION_REFERENCE = "DMO-VER-001";
+const TRAINING_COMPANY_VERIFICATION_REFERENCE = "DMO-VER-MERCHANT";
+const TRAINING_DEPOSIT_REFERENCE = "DMO-RSV-001";
+const TRAINING_SETTLEMENT_REFERENCE = "DMO-STL-001";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type TrainingActor = {
@@ -43,15 +43,15 @@ function scenarioRank(scenario: TrainingScenario) {
 function orderPaymentData(type: ProcessingOrderType, key: string) {
   return type === "PAY_IN"
     ? encryptProcessingData({
-        payerName: "Training payer",
-        payerReference: `TRAINING-PAYER-${key}`,
+        payerName: "Demo payer",
+        payerReference: `DEMO-PAYER-${key}`,
       })
     : encryptProcessingData({
-        beneficiaryName: "Training beneficiary",
+        beneficiaryName: "Demo beneficiary",
         accountNumber: `00000${key}01`,
         ifsc: "TEST0001234",
-        bankName: "Training Bank",
-        upiId: `training${key}@demo`,
+        bankName: "Demo Bank",
+        upiId: `demo${key}@upi`,
       });
 }
 
@@ -93,7 +93,7 @@ async function createApprovedPartnerVerification(tx: Prisma.TransactionClient, p
       partnerId,
       status: "APPROVED",
       riskLevel: "LOW",
-      decisionNote: "Training scenario approval. No live counterparty decision.",
+      decisionNote: "Demo approval used only inside the isolated product environment.",
       decidedById: actor.id ?? null,
       decidedAt: now,
       expiresAt: new Date(now.getTime() + 365 * DAY_MS),
@@ -103,7 +103,7 @@ async function createApprovedPartnerVerification(tx: Prisma.TransactionClient, p
           provider: "TRAINING_SIMULATOR",
           providerReference: `TRN-${type}`,
           status: "PASSED",
-          summary: "Completed in the isolated Training Mode scenario.",
+          summary: "Completed in the isolated demo environment.",
           reviewedById: actor.id ?? null,
           reviewedAt: now,
         })),
@@ -119,7 +119,7 @@ async function createCompanyVerification(tx: Prisma.TransactionClient, organizat
       organizationId,
       status: "APPROVED",
       riskLevel: "LOW",
-      decisionNote: "Training merchant approved for scenario playback only.",
+      decisionNote: "Demo merchant approved only inside the isolated product environment.",
       decidedById: actor.id ?? null,
       decidedAt: now,
       expiresAt: new Date(now.getTime() + 365 * DAY_MS),
@@ -129,7 +129,7 @@ async function createCompanyVerification(tx: Prisma.TransactionClient, organizat
           provider: "TRAINING_SIMULATOR",
           providerReference: `TRN-MERCHANT-${type}`,
           status: "PASSED",
-          summary: "Synthetic training merchant check.",
+          summary: "Demo merchant check completed.",
           reviewedById: actor.id ?? null,
           reviewedAt: now,
         })),
@@ -140,8 +140,8 @@ async function createCompanyVerification(tx: Prisma.TransactionClient, organizat
 
 async function createVerificationInProgress(tx: Prisma.TransactionClient, partnerId: string, actor: TrainingActor, now: Date) {
   const checks = [
-    ["IDENTITY", "PASSED", "Identity specimen reviewed."],
-    ["SANCTIONS_PEP", "PASSED", "Training screening returned no match."],
+    ["IDENTITY", "PASSED", "Identity evidence reviewed."],
+    ["SANCTIONS_PEP", "PASSED", "Screening returned no match."],
     ["BANK_ACCOUNT", "REVIEW", "Bank ownership evidence is under operator review."],
     ["WALLET_RISK", "PENDING", "Waiting for reserve-wallet evidence."],
     ["REFERENCES", "PENDING", "Operating reference has not been reviewed yet."],
@@ -188,7 +188,7 @@ async function createActiveInfrastructure(
       providerStatus: "simulated_confirmed",
       transactionHash: "d".repeat(64),
       reviewedById: actor.id ?? null,
-      reviewNote: "Simulated reserve. No token transfer occurred.",
+      reviewNote: "Demo reserve record. No token transfer occurred.",
       submittedAt: new Date(now.getTime() - 35 * 60 * 1000),
       confirmedAt: new Date(now.getTime() - 30 * 60 * 1000),
       createdAt: new Date(now.getTime() - 40 * 60 * 1000),
@@ -197,55 +197,73 @@ async function createActiveInfrastructure(
 
   const upiRail = await tx.partnerPaymentRail.create({
     data: {
-      reference: "TRN-RAIL-VIDEO-UPI",
+      reference: "DMO-RAIL-UPI-01",
       partnerId,
       type: "UPI",
-      label: "Training UPI desk",
-      bankName: "Training Bank",
-      maskedDestination: "tr••••••@demo",
-      encryptedDetails: encryptProcessingData({ accountHolder: "Training operator", upiId: "training.operator@demo", bankName: "Training Bank" }),
+      label: "Primary UPI collection",
+      bankName: "Demo Bank",
+      maskedDestination: "op••••••@upi",
+      encryptedDetails: encryptProcessingData({ accountHolder: "Demo operator", upiId: "operator.demo@upi", bankName: "Demo Bank" }),
       minTicketInr: new Prisma.Decimal(500),
       maxTicketInr: new Prisma.Decimal(100_000),
       dailyLimitInr: new Prisma.Decimal(500_000),
       status: "ACTIVE",
       reviewedById: actor.id ?? null,
-      reviewNote: "Synthetic rail for Training Mode only.",
+      reviewNote: "Demo rail. No live bank account is connected.",
       reviewedAt: now,
     },
   });
   const impsRail = await tx.partnerPaymentRail.create({
     data: {
-      reference: "TRN-RAIL-VIDEO-IMPS",
+      reference: "DMO-RAIL-IMPS-01",
       partnerId,
       type: "IMPS",
-      label: "Training IMPS desk",
-      bankName: "Training Bank",
+      label: "Primary IMPS account",
+      bankName: "Demo Bank",
       maskedDestination: "••••••••0101",
-      encryptedDetails: encryptProcessingData({ accountHolder: "Training operator", accountNumber: "000000000101", ifsc: "TEST0001234", bankName: "Training Bank" }),
+      encryptedDetails: encryptProcessingData({ accountHolder: "Demo operator", accountNumber: "000000000101", ifsc: "TEST0001234", bankName: "Demo Bank" }),
       minTicketInr: new Prisma.Decimal(10_000),
       maxTicketInr: new Prisma.Decimal(500_000),
       dailyLimitInr: new Prisma.Decimal(1_500_000),
       status: "ACTIVE",
       reviewedById: actor.id ?? null,
-      reviewNote: "Synthetic rail for Training Mode only.",
+      reviewNote: "Demo rail. No live bank account is connected.",
+      reviewedAt: now,
+    },
+  });
+  const neftRail = await tx.partnerPaymentRail.create({
+    data: {
+      reference: "DMO-RAIL-NEFT-01",
+      partnerId,
+      type: "NEFT",
+      label: "Primary NEFT account",
+      bankName: "Demo Bank",
+      maskedDestination: "••••••••0151",
+      encryptedDetails: encryptProcessingData({ accountHolder: "Demo operator", accountNumber: "000000000151", ifsc: "TEST0001234", bankName: "Demo Bank" }),
+      minTicketInr: new Prisma.Decimal(50_000),
+      maxTicketInr: new Prisma.Decimal(1_500_000),
+      dailyLimitInr: new Prisma.Decimal(2_000_000),
+      status: "ACTIVE",
+      reviewedById: actor.id ?? null,
+      reviewNote: "Demo rail. No live bank account is connected.",
       reviewedAt: now,
     },
   });
   const rtgsRail = await tx.partnerPaymentRail.create({
     data: {
-      reference: "TRN-RAIL-VIDEO-RTGS",
+      reference: "DMO-RAIL-RTGS-01",
       partnerId,
       type: "RTGS",
-      label: "Training RTGS desk",
-      bankName: "Training Bank",
+      label: "High-value RTGS account",
+      bankName: "Demo Bank",
       maskedDestination: "••••••••0202",
-      encryptedDetails: encryptProcessingData({ accountHolder: "Training operator", accountNumber: "000000000202", ifsc: "TEST0001234", bankName: "Training Bank" }),
+      encryptedDetails: encryptProcessingData({ accountHolder: "Demo operator", accountNumber: "000000000202", ifsc: "TEST0001234", bankName: "Demo Bank" }),
       minTicketInr: new Prisma.Decimal(200_000),
       maxTicketInr: new Prisma.Decimal(2_000_000),
       dailyLimitInr: new Prisma.Decimal(3_000_000),
       status: "ACTIVE",
       reviewedById: actor.id ?? null,
-      reviewNote: "Synthetic rail for Training Mode only.",
+      reviewNote: "Demo rail. No live bank account is connected.",
       reviewedAt: now,
     },
   });
@@ -268,36 +286,36 @@ async function createActiveInfrastructure(
   for (const [index, spec] of TRAINING_QUEUE_ORDERS.entries()) {
     await tx.processingOrder.create({
       data: {
-        reference: `TRN-ORD-Q-${spec.key}`,
-        externalReference: `TRAINING-QUEUE-${spec.key}`,
+        reference: `DMO-ORD-Q-${spec.key}`,
+        externalReference: `DEMO-QUEUE-${spec.key}`,
         companyId,
         type: spec.type,
         status: "AVAILABLE",
         requestedRail: spec.rail,
         amountInr: new Prisma.Decimal(spec.amount),
-        counterpartyLabel: spec.type === "PAY_IN" ? "Training payer · protected" : "Training beneficiary · protected",
+        counterpartyLabel: spec.type === "PAY_IN" ? "Payer details · protected" : "Beneficiary details · protected",
         encryptedPaymentData: orderPaymentData(spec.type, spec.key),
-        companyNote: "Training order — no external transfer instruction.",
-        internalNote: "Synthetic order generated by Training Studio.",
+        companyNote: "Demo order. No external transfer instruction.",
+        internalNote: "Generated by the isolated Demo Operations environment.",
         createdById: actor.id ?? companyId,
-        expiresAt: new Date(now.getTime() + (30 + index * 6) * 60 * 1000),
-        createdAt: new Date(now.getTime() - (index + 1) * 60 * 1000),
+        expiresAt: new Date(now.getTime() + (12 + index * 9) * 60 * 1000),
+        createdAt: new Date(now.getTime() - (index + 2) * 70 * 1000),
         events: {
           create: {
             toStatus: "AVAILABLE",
             actorId: actor.id ?? null,
-            actorLabel: "Training merchant",
+            actorLabel: "Demo merchant",
             actorRole: "COMPANY",
-            note: "Synthetic order released to the isolated training queue.",
+            note: "Demo order released to the isolated partner queue.",
             meta: { training: true },
-            createdAt: new Date(now.getTime() - (index + 1) * 60 * 1000),
+            createdAt: new Date(now.getTime() - (index + 2) * 70 * 1000),
           },
         },
       },
     });
   }
 
-  return { deposit, upiRail, impsRail, rtgsRail };
+  return { deposit, upiRail, impsRail, neftRail, rtgsRail };
 }
 
 function event(
@@ -332,12 +350,13 @@ async function createHistory(
     companyUserId: string;
     upiRailId: string;
     impsRailId: string;
+    neftRailId: string;
     rtgsRailId: string;
     actor: TrainingActor;
     now: Date;
   },
 ) {
-  const { partnerId, partnerUserId, companyId, companyUserId, upiRailId, impsRailId, rtgsRailId, actor, now } = input;
+  const { partnerId, partnerUserId, companyId, companyUserId, upiRailId, impsRailId, neftRailId, rtgsRailId, actor, now } = input;
   const periods = indiaPerformancePeriods(now);
   const maxDayAgo = Math.max(0, Math.floor((now.getTime() - periods.monthStart.getTime()) / DAY_MS));
   const completedOrderIds: string[] = [];
@@ -357,22 +376,22 @@ async function createHistory(
     const isPayIn = spec.type === "PAY_IN";
     const order = await tx.processingOrder.create({
       data: {
-        reference: `TRN-ORD-C-${spec.key}`,
-        externalReference: `TRAINING-COMPLETED-${spec.key}`,
+        reference: `DMO-ORD-C-${spec.key}`,
+        externalReference: `DEMO-COMPLETED-${spec.key}`,
         companyId,
         partnerId,
-        railId: isPayIn ? (spec.rail === "IMPS" ? impsRailId : spec.rail === "RTGS" ? rtgsRailId : upiRailId) : null,
+        railId: isPayIn ? (spec.rail === "IMPS" ? impsRailId : spec.rail === "NEFT" ? neftRailId : spec.rail === "RTGS" ? rtgsRailId : upiRailId) : null,
         type: spec.type,
         status: "COMPLETED",
         requestedRail: spec.rail,
         amountInr: amount,
         partnerFeeBps: 100,
         partnerFeeInr: partnerFee,
-        counterpartyLabel: isPayIn ? "Training payer · protected" : "Training beneficiary · protected",
+        counterpartyLabel: isPayIn ? "Payer details · protected" : "Beneficiary details · protected",
         encryptedPaymentData: orderPaymentData(spec.type, spec.key),
-        companyNote: "Completed Training Mode order. No external funds moved.",
-        internalNote: "Synthetic order generated by Training Studio.",
-        paymentReference: `TRAINING-UTR-${spec.key}`,
+        companyNote: "Completed demo order. No external funds moved.",
+        internalNote: "Generated by the isolated Demo Operations environment.",
+        paymentReference: `DEMO-UTR-${spec.key}`,
         createdById: companyUserId,
         assignedAt,
         expiresAt: new Date(completedAt.getTime() + 30 * 60 * 1000),
@@ -382,10 +401,10 @@ async function createHistory(
         createdAt,
         events: {
           create: [
-            event({ status: "AVAILABLE", actorId: companyUserId, actorLabel: "Training merchant", actorRole: "COMPANY", note: "Training order released.", createdAt }),
-            event({ status: "ASSIGNED", fromStatus: "AVAILABLE", actorId: partnerUserId, actorLabel: "Training trader", actorRole: "PARTNER", note: "Training trader accepted the order.", createdAt: assignedAt }),
-            event({ status: isPayIn ? "PAYMENT_MARKED" : "PAYOUT_SENT", fromStatus: "ASSIGNED", actorId: isPayIn ? companyUserId : partnerUserId, actorLabel: isPayIn ? "Training merchant" : "Training trader", actorRole: isPayIn ? "COMPANY" : "PARTNER", note: isPayIn ? "Simulated payer transfer marked sent." : "Simulated payout reference recorded.", createdAt: middleAt }),
-            event({ status: "COMPLETED", fromStatus: isPayIn ? "PAYMENT_MARKED" : "PAYOUT_SENT", actorId: isPayIn ? partnerUserId : companyUserId, actorLabel: isPayIn ? "Training trader" : "Training merchant", actorRole: isPayIn ? "PARTNER" : "COMPANY", note: "Training order completed and reconciled.", createdAt: completedAt }),
+            event({ status: "AVAILABLE", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Order released to the partner queue.", createdAt }),
+            event({ status: "ASSIGNED", fromStatus: "AVAILABLE", actorId: partnerUserId, actorLabel: "Demo operator", actorRole: "PARTNER", note: "Order accepted by the partner desk.", createdAt: assignedAt }),
+            event({ status: isPayIn ? "PAYMENT_MARKED" : "PAYOUT_SENT", fromStatus: "ASSIGNED", actorId: isPayIn ? companyUserId : partnerUserId, actorLabel: isPayIn ? "Demo merchant" : "Demo operator", actorRole: isPayIn ? "COMPANY" : "PARTNER", note: isPayIn ? "Payer transfer marked sent." : "Payout reference recorded.", createdAt: middleAt }),
+            event({ status: "COMPLETED", fromStatus: isPayIn ? "PAYMENT_MARKED" : "PAYOUT_SENT", actorId: isPayIn ? partnerUserId : companyUserId, actorLabel: isPayIn ? "Demo operator" : "Demo merchant", actorRole: isPayIn ? "PARTNER" : "COMPANY", note: "Order completed and reconciled.", createdAt: completedAt }),
           ],
         },
       },
@@ -396,11 +415,11 @@ async function createHistory(
     totalFees = totalFees.plus(partnerFee);
   }
 
-  const activeAmount = 32_500;
+  const activeAmount = 28_750;
   await tx.processingOrder.create({
     data: {
-      reference: "TRN-ORD-A-201",
-      externalReference: "TRAINING-ACTIVE-201",
+      reference: "DMO-ORD-A-201",
+      externalReference: "DEMO-ACTIVE-201",
       companyId,
       partnerId,
       railId: upiRailId,
@@ -410,11 +429,11 @@ async function createHistory(
       amountInr: new Prisma.Decimal(activeAmount),
       partnerFeeBps: 100,
       partnerFeeInr: fee(activeAmount),
-      counterpartyLabel: "Training payer · protected",
+      counterpartyLabel: "Payer details · protected",
       encryptedPaymentData: orderPaymentData("PAY_IN", "201"),
-      companyNote: "Open this order and confirm the simulated INR receipt.",
-      internalNote: "Training Studio action order.",
-      paymentReference: "TRAINING-UTR-201",
+      companyNote: "Open the order and confirm receipt against the supplied payment reference.",
+      internalNote: "Demo Operations action order. No external funds moved.",
+      paymentReference: "DEMO-UTR-201",
       createdById: companyUserId,
       assignedAt: new Date(now.getTime() - 12 * 60 * 1000),
       paymentMarkedAt: new Date(now.getTime() - 4 * 60 * 1000),
@@ -422,13 +441,76 @@ async function createHistory(
       createdAt: new Date(now.getTime() - 18 * 60 * 1000),
       events: {
         create: [
-          event({ status: "AVAILABLE", actorId: companyUserId, actorLabel: "Training merchant", actorRole: "COMPANY", note: "Training order released.", createdAt: new Date(now.getTime() - 18 * 60 * 1000) }),
-          event({ status: "ASSIGNED", fromStatus: "AVAILABLE", actorId: partnerUserId, actorLabel: "Training trader", actorRole: "PARTNER", note: "Order accepted by the training trader.", createdAt: new Date(now.getTime() - 12 * 60 * 1000) }),
-          event({ status: "PAYMENT_MARKED", fromStatus: "ASSIGNED", actorId: companyUserId, actorLabel: "Training merchant", actorRole: "COMPANY", note: "Simulated payer transfer marked sent. Trader confirmation is required.", createdAt: new Date(now.getTime() - 4 * 60 * 1000) }),
+          event({ status: "AVAILABLE", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Order released to the partner queue.", createdAt: new Date(now.getTime() - 18 * 60 * 1000) }),
+          event({ status: "ASSIGNED", fromStatus: "AVAILABLE", actorId: partnerUserId, actorLabel: "Demo operator", actorRole: "PARTNER", note: "Order accepted by the partner desk.", createdAt: new Date(now.getTime() - 12 * 60 * 1000) }),
+          event({ status: "PAYMENT_MARKED", fromStatus: "ASSIGNED", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Payer transfer marked sent. Partner confirmation is required.", createdAt: new Date(now.getTime() - 4 * 60 * 1000) }),
         ],
       },
     },
   });
+
+  await Promise.all([
+    tx.processingOrder.create({
+      data: {
+        reference: "DMO-ORD-X-301",
+        externalReference: "DEMO-FAILED-301",
+        companyId,
+        partnerId,
+        type: "PAY_IN",
+        status: "FAILED",
+        requestedRail: "UPI",
+        amountInr: new Prisma.Decimal(9_850),
+        partnerFeeBps: 100,
+        partnerFeeInr: new Prisma.Decimal(0),
+        counterpartyLabel: "Payer details · protected",
+        encryptedPaymentData: orderPaymentData("PAY_IN", "301"),
+        companyNote: "Bank confirmation was not received before the payment window closed.",
+        internalNote: "Demo exception. Excluded from volume and commission.",
+        failureReason: "Bank confirmation timeout",
+        createdById: companyUserId,
+        assignedAt: new Date(now.getTime() - 28 * 60 * 60 * 1000),
+        expiresAt: new Date(now.getTime() - 27 * 60 * 60 * 1000),
+        createdAt: new Date(now.getTime() - 29 * 60 * 60 * 1000),
+        events: {
+          create: [
+            event({ status: "AVAILABLE", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Order released to the partner queue.", createdAt: new Date(now.getTime() - 29 * 60 * 60 * 1000) }),
+            event({ status: "ASSIGNED", fromStatus: "AVAILABLE", actorId: partnerUserId, actorLabel: "Demo operator", actorRole: "PARTNER", note: "Order accepted by the partner desk.", createdAt: new Date(now.getTime() - 28 * 60 * 60 * 1000) }),
+            event({ status: "FAILED", fromStatus: "ASSIGNED", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Bank confirmation window closed. Order removed from commission.", createdAt: new Date(now.getTime() - 27 * 60 * 60 * 1000) }),
+          ],
+        },
+      },
+    }),
+    tx.processingOrder.create({
+      data: {
+        reference: "DMO-ORD-X-302",
+        externalReference: "DEMO-CANCELLED-302",
+        companyId,
+        partnerId,
+        type: "PAY_OUT",
+        status: "CANCELLED",
+        requestedRail: "IMPS",
+        amountInr: new Prisma.Decimal(54_000),
+        partnerFeeBps: 100,
+        partnerFeeInr: new Prisma.Decimal(0),
+        counterpartyLabel: "Beneficiary details · protected",
+        encryptedPaymentData: orderPaymentData("PAY_OUT", "302"),
+        companyNote: "Merchant cancelled before transfer initiation.",
+        internalNote: "Demo exception. Excluded from volume and commission.",
+        failureReason: "Cancelled by merchant",
+        createdById: companyUserId,
+        assignedAt: new Date(now.getTime() - 50 * 60 * 60 * 1000),
+        expiresAt: new Date(now.getTime() - 49 * 60 * 60 * 1000),
+        createdAt: new Date(now.getTime() - 51 * 60 * 60 * 1000),
+        events: {
+          create: [
+            event({ status: "AVAILABLE", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Order released to the partner queue.", createdAt: new Date(now.getTime() - 51 * 60 * 60 * 1000) }),
+            event({ status: "ASSIGNED", fromStatus: "AVAILABLE", actorId: partnerUserId, actorLabel: "Demo operator", actorRole: "PARTNER", note: "Order accepted by the partner desk.", createdAt: new Date(now.getTime() - 50 * 60 * 60 * 1000) }),
+            event({ status: "CANCELLED", fromStatus: "ASSIGNED", actorId: companyUserId, actorLabel: "Demo merchant", actorRole: "COMPANY", note: "Merchant cancelled before transfer initiation. No commission recorded.", createdAt: new Date(now.getTime() - 49 * 60 * 60 * 1000) }),
+          ],
+        },
+      },
+    }),
+  ]);
   await tx.partnerProcessingAccount.update({
     where: { partnerId },
     data: { lockedExposureInr: new Prisma.Decimal(activeAmount), version: { increment: 1 } },
@@ -451,7 +533,7 @@ async function createHistory(
       grossPayOutInr: settledPayOut,
       partnerFeeInr: settledFees,
       netPositionInr: settledPayIn.minus(settledPayOut).minus(settledFees),
-      note: "Training reconciliation batch. No external settlement instruction.",
+      note: "Demo reconciliation batch. No external settlement instruction.",
       dueAt: new Date(now.getTime() + DAY_MS),
       createdById: actor.id ?? companyUserId,
     },
@@ -471,72 +553,72 @@ export async function applyTrainingScenario(scenario: TrainingScenario, actor: T
   return db.$transaction(async (tx) => {
     const partnerUser = await tx.user.upsert({
       where: { email },
-      update: { name: "Training trader", role: "PARTNER", passwordHash, emailVerifiedAt: now, mustSetPassword: false, failedLoginAttempts: 0, lockedUntil: null, telegramChatId: null },
-      create: { email, name: "Training trader", role: "PARTNER", passwordHash, emailVerifiedAt: now },
+      update: { name: "Demo operator", role: "PARTNER", passwordHash, emailVerifiedAt: now, mustSetPassword: false, failedLoginAttempts: 0, lockedUntil: null, telegramChatId: null },
+      create: { email, name: "Demo operator", role: "PARTNER", passwordHash, emailVerifiedAt: now },
     });
     const companyUser = await tx.user.upsert({
       where: { email: TRAINING_COMPANY_EMAIL },
-      update: { name: "Training merchant", role: "COMPANY", passwordHash, emailVerifiedAt: now, mustSetPassword: false, failedLoginAttempts: 0, lockedUntil: null, telegramChatId: null },
-      create: { email: TRAINING_COMPANY_EMAIL, name: "Training merchant", role: "COMPANY", passwordHash, emailVerifiedAt: now },
+      update: { name: "Demo merchant", role: "COMPANY", passwordHash, emailVerifiedAt: now, mustSetPassword: false, failedLoginAttempts: 0, lockedUntil: null, telegramChatId: null },
+      create: { email: TRAINING_COMPANY_EMAIL, name: "Demo merchant", role: "COMPANY", passwordHash, emailVerifiedAt: now },
     });
     const partner = await tx.partnerProfile.upsert({
       where: { userId: partnerUser.id },
       update: {
         reference: TRAINING_PARTNER_REFERENCE,
-        displayName: "INRP2P Training Desk",
-        legalName: "Training entity — not a live counterparty",
-        contactName: "Training operator",
-        experienceBand: "Training scenario",
+        displayName: "INRP2P Demo Processing Desk",
+        legalName: "Demo entity — not a live counterparty",
+        contactName: "Demo operator",
+        experienceBand: "2–5 years · demo profile",
         directions: ["INR_PAYOUTS"],
-        banks: ["Training Bank"],
+        banks: ["Demo Bank"],
         methods: ["UPI", "IMPS", "NEFT", "RTGS"],
-        dailyCapacityBand: "₹5–10 lakh / training day",
-        monthlyCapacityBand: "₹10–20 lakh / training month",
+        dailyCapacityBand: "₹5–10 lakh / day",
+        monthlyCapacityBand: "₹10–25 lakh / month",
         minTicket: "₹500",
         maxTicket: "₹5 lakh",
-        settlementPreference: "Training reconciliation only",
-        workingHours: "Always available in Training Mode",
-        reserveBand: "400 USDT simulated reserve",
-        jurisdictions: "India — training environment",
+        settlementPreference: "Daily reconciliation · demo",
+        workingHours: "09:00–21:00 IST",
+        reserveBand: "400 USDT demo reserve",
+        jurisdictions: "India — demo environment",
         operatingCountry: "India",
-        complianceFlags: ["Synthetic identity", "No live funds", "Training Mode"],
-        complianceNotes: "This profile exists only for deterministic product walkthroughs.",
+        complianceFlags: ["Demo identity", "No live funds", "Isolated environment"],
+        complianceNotes: "This profile exists only for deterministic product demonstrations.",
         riskNotes: null,
-        additionalComments: "Never use production bank, wallet or customer information in this workspace.",
+        additionalComments: "No production bank, wallet or customer information is used in this workspace.",
       },
       create: {
         userId: partnerUser.id,
         reference: TRAINING_PARTNER_REFERENCE,
-        displayName: "INRP2P Training Desk",
-        legalName: "Training entity — not a live counterparty",
-        contactName: "Training operator",
-        experienceBand: "Training scenario",
+        displayName: "INRP2P Demo Processing Desk",
+        legalName: "Demo entity — not a live counterparty",
+        contactName: "Demo operator",
+        experienceBand: "2–5 years · demo profile",
         directions: ["INR_PAYOUTS"],
-        banks: ["Training Bank"],
+        banks: ["Demo Bank"],
         methods: ["UPI", "IMPS", "NEFT", "RTGS"],
-        dailyCapacityBand: "₹5–10 lakh / training day",
-        monthlyCapacityBand: "₹10–20 lakh / training month",
+        dailyCapacityBand: "₹5–10 lakh / day",
+        monthlyCapacityBand: "₹10–25 lakh / month",
         minTicket: "₹500",
         maxTicket: "₹5 lakh",
-        settlementPreference: "Training reconciliation only",
-        workingHours: "Always available in Training Mode",
-        reserveBand: "400 USDT simulated reserve",
-        jurisdictions: "India — training environment",
+        settlementPreference: "Daily reconciliation · demo",
+        workingHours: "09:00–21:00 IST",
+        reserveBand: "400 USDT demo reserve",
+        jurisdictions: "India — demo environment",
         operatingCountry: "India",
-        complianceFlags: ["Synthetic identity", "No live funds", "Training Mode"],
-        complianceNotes: "This profile exists only for deterministic product walkthroughs.",
-        additionalComments: "Never use production bank, wallet or customer information in this workspace.",
+        complianceFlags: ["Demo identity", "No live funds", "Isolated environment"],
+        complianceNotes: "This profile exists only for deterministic product demonstrations.",
+        additionalComments: "No production bank, wallet or customer information is used in this workspace.",
       },
     });
     const company = await tx.companyProfile.upsert({
       where: { userId: companyUser.id },
-      update: { companyName: "INRP2P Training Merchant", website: "https://example.invalid", jurisdiction: "India", contactName: "Training merchant", contactRole: "Simulation", telegram: null, phone: null },
-      create: { userId: companyUser.id, companyName: "INRP2P Training Merchant", website: "https://example.invalid", jurisdiction: "India", contactName: "Training merchant", contactRole: "Simulation" },
+      update: { companyName: "Merchant Alpha · Demo", website: "https://example.invalid", jurisdiction: "India", contactName: "Demo merchant", contactRole: "Operations", telegram: null, phone: null },
+      create: { userId: companyUser.id, companyName: "Merchant Alpha · Demo", website: "https://example.invalid", jurisdiction: "India", contactName: "Demo merchant", contactRole: "Operations" },
     });
     const organization = await tx.organization.upsert({
       where: { companyProfileId: company.id },
-      update: { name: "INRP2P Training Merchant" },
-      create: { companyProfileId: company.id, name: "INRP2P Training Merchant" },
+      update: { name: "Merchant Alpha · Demo" },
+      create: { companyProfileId: company.id, name: "Merchant Alpha · Demo" },
     });
 
     await clearTrainingState(tx, {
@@ -581,6 +663,7 @@ export async function applyTrainingScenario(scenario: TrainingScenario, actor: T
           companyUserId: companyUser.id,
           upiRailId: infrastructure.upiRail.id,
           impsRailId: infrastructure.impsRail.id,
+          neftRailId: infrastructure.neftRail.id,
           rtgsRailId: infrastructure.rtgsRail.id,
           actor,
           now,
@@ -615,6 +698,7 @@ export async function applyTrainingScenario(scenario: TrainingScenario, actor: T
 export async function getTrainingWorkspaceSummary() {
   assertTrainingMode();
   const email = trainingPartnerEmail();
+  const { todayStart } = indiaPerformancePeriods(new Date());
   const user = await db.user.findUnique({ where: { email }, include: { partner: true } });
   const passwordReady = (() => {
     try { trainingPassword(); return true; } catch { return false; }
@@ -629,25 +713,40 @@ export async function getTrainingWorkspaceSummary() {
       reserveUsdt: 0,
       accountEnabled: false,
       queueOrders: 0,
+      queueVolumeInr: 0,
       activeOrders: 0,
+      activeVolumeInr: 0,
       completedOrders: 0,
       completedVolumeInr: 0,
       commissionInr: 0,
+      payInVolumeInr: 0,
+      payOutVolumeInr: 0,
+      todayOrders: 0,
+      todayVolumeInr: 0,
+      todayCommissionInr: 0,
+      exceptionOrders: 0,
       settlementStatus: null,
+      settlementNetInr: 0,
     };
   }
 
-  const [verification, deposits, account, queueOrders, activeOrders, completed, settlement] = await Promise.all([
+  const [verification, deposits, account, queue, active, completed, exceptionOrders, settlement] = await Promise.all([
     db.verificationCase.findFirst({ where: { partnerId: user.partner.id }, orderBy: { createdAt: "desc" }, select: { status: true } }),
     db.partnerDeposit.findMany({ where: { partnerId: user.partner.id, status: "CONFIRMED" }, select: { amount: true, actualAmount: true } }),
     db.partnerProcessingAccount.findUnique({ where: { partnerId: user.partner.id }, select: { enabled: true } }),
-    db.processingOrder.count({ where: { company: { user: { email: TRAINING_COMPANY_EMAIL } }, status: "AVAILABLE" } }),
-    db.processingOrder.count({ where: { partnerId: user.partner.id, status: { in: ["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"] } } }),
-    db.processingOrder.aggregate({ where: { partnerId: user.partner.id, status: "COMPLETED" }, _count: { _all: true }, _sum: { amountInr: true, partnerFeeInr: true } }),
-    db.processingSettlement.findFirst({ where: { partnerId: user.partner.id }, orderBy: { createdAt: "desc" }, select: { status: true } }),
+    db.processingOrder.aggregate({ where: { company: { user: { email: TRAINING_COMPANY_EMAIL } }, status: "AVAILABLE" }, _count: { _all: true }, _sum: { amountInr: true } }),
+    db.processingOrder.aggregate({ where: { partnerId: user.partner.id, status: { in: ["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"] } }, _count: { _all: true }, _sum: { amountInr: true } }),
+    db.processingOrder.findMany({ where: { partnerId: user.partner.id, status: "COMPLETED" }, select: { type: true, amountInr: true, partnerFeeInr: true, completedAt: true } }),
+    db.processingOrder.count({ where: { partnerId: user.partner.id, status: { in: ["FAILED", "EXPIRED", "CANCELLED"] } } }),
+    db.processingSettlement.findFirst({ where: { partnerId: user.partner.id }, orderBy: { createdAt: "desc" }, select: { status: true, netPositionInr: true } }),
   ]);
   const reserveUsdt = deposits.reduce((sum, item) => sum + Number((item.actualAmount ?? item.amount).toString()), 0);
-  const scenario: TrainingScenario = completed._count._all > 0
+  const completedVolumeInr = completed.reduce((sum, order) => sum + Number(order.amountInr), 0);
+  const commissionInr = completed.reduce((sum, order) => sum + Number(order.partnerFeeInr), 0);
+  const payInVolumeInr = completed.filter((order) => order.type === "PAY_IN").reduce((sum, order) => sum + Number(order.amountInr), 0);
+  const payOutVolumeInr = completed.filter((order) => order.type === "PAY_OUT").reduce((sum, order) => sum + Number(order.amountInr), 0);
+  const completedToday = completed.filter((order) => order.completedAt && order.completedAt >= todayStart);
+  const scenario: TrainingScenario = completed.length > 0
     ? "HISTORY"
     : account?.enabled
       ? "ACTIVE"
@@ -665,11 +764,20 @@ export async function getTrainingWorkspaceSummary() {
     verificationStatus: verification?.status ?? null,
     reserveUsdt,
     accountEnabled: Boolean(account?.enabled),
-    queueOrders,
-    activeOrders,
-    completedOrders: completed._count._all,
-    completedVolumeInr: Number(completed._sum.amountInr?.toString() ?? 0),
-    commissionInr: Number(completed._sum.partnerFeeInr?.toString() ?? 0),
+    queueOrders: queue._count._all,
+    queueVolumeInr: Number(queue._sum.amountInr?.toString() ?? 0),
+    activeOrders: active._count._all,
+    activeVolumeInr: Number(active._sum.amountInr?.toString() ?? 0),
+    completedOrders: completed.length,
+    completedVolumeInr,
+    commissionInr,
+    payInVolumeInr,
+    payOutVolumeInr,
+    todayOrders: completedToday.length,
+    todayVolumeInr: completedToday.reduce((sum, order) => sum + Number(order.amountInr), 0),
+    todayCommissionInr: completedToday.reduce((sum, order) => sum + Number(order.partnerFeeInr), 0),
+    exceptionOrders,
     settlementStatus: settlement?.status ?? null,
+    settlementNetInr: Number(settlement?.netPositionInr.toString() ?? 0),
   };
 }

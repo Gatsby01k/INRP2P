@@ -12,6 +12,7 @@ import {
   assertTrainingMode,
   isTrainingAccountEmail,
   isTrainingScenario,
+  trainingScenario,
 } from "@/lib/training";
 import { applyTrainingScenario } from "@/lib/training-workspace";
 
@@ -42,11 +43,11 @@ export async function setTrainingScenario(fd: FormData) {
   const scenario = text(fd, "scenario");
   if (!isTrainingScenario(scenario)) finish("/admin/training", "error", "Select a valid training scenario.");
   try {
-    await applyTrainingScenario(scenario, { id: admin.id, label: "Training Studio operator" });
+    await applyTrainingScenario(scenario, { id: admin.id, label: "Demo Operations controller" });
   } catch (error) {
-    finish("/admin/training", "error", error instanceof Error ? error.message : "Training scenario could not be prepared.");
+    finish("/admin/training", "error", error instanceof Error ? error.message : "The demo account could not be prepared.");
   }
-  finish("/admin/training", "notice", `${scenario.replaceAll("_", " ")} scenario is ready for recording.`);
+  finish("/admin/training", "notice", `${trainingScenario(scenario).label} loaded. Refresh the partner window to see the new operating state.`);
 }
 
 export async function createTrainingReserveInstruction(fd: FormData) {
@@ -61,13 +62,13 @@ export async function createTrainingReserveInstruction(fd: FormData) {
   const open = await db.partnerDeposit.findFirst({
     where: { partnerId: partner.id, status: { in: ["AWAITING_PAYMENT", "CONFIRMING", "CONFIRMED"] } },
   });
-  if (open) finish("/partner/deposit", "notice", "The training reserve instruction is already recorded.");
+  if (open) finish("/partner/deposit", "notice", "The demo reserve instruction is already recorded.");
 
   const deposit = await db.$transaction(async (tx) => {
     await tx.partnerProfile.update({ where: { id: partner.id }, data: { programLevel: level.code } });
     return tx.partnerDeposit.create({
       data: {
-        reference: `TRN-DEP-${Date.now().toString(36).toUpperCase()}`,
+        reference: `DMO-RSV-${Date.now().toString(36).toUpperCase()}`,
         partnerId: partner.id,
         amount: new Prisma.Decimal(level.activationReserveUsdt),
         provider: "TRAINING_SIMULATOR",
@@ -86,7 +87,7 @@ export async function createTrainingReserveInstruction(fd: FormData) {
     partnerId: partner.id,
     meta: { training: true, amount: deposit.amount.toString(), noLiveFunds: true, programLevel: level.code },
   });
-  finish("/partner/deposit", "notice", "Training reserve instruction created. No wallet transfer is required.");
+  finish("/partner/deposit", "notice", "Demo reserve instruction created. No wallet transfer is required.");
 }
 
 export async function submitTrainingReserveInstruction(fd: FormData) {
@@ -100,7 +101,7 @@ export async function submitTrainingReserveInstruction(fd: FormData) {
   const deposit = await db.partnerDeposit.findFirst({
     where: { id: text(fd, "depositId"), partnerId: partner.id, provider: "TRAINING_SIMULATOR", status: "AWAITING_PAYMENT" },
   });
-  if (!deposit) finish("/partner/deposit", "error", "Training reserve instruction is no longer awaiting submission.");
+  if (!deposit) finish("/partner/deposit", "error", "The demo reserve instruction is no longer awaiting submission.");
   const simulatedReference = crypto.createHash("sha256").update(`training:${deposit.id}`).digest("hex");
   await db.partnerDeposit.update({
     where: { id: deposit.id },
@@ -109,7 +110,7 @@ export async function submitTrainingReserveInstruction(fd: FormData) {
       providerStatus: "simulated_transfer_submitted",
       transactionHash: simulatedReference,
       submittedAt: new Date(),
-      reviewNote: "Training submission only. No token transfer occurred.",
+      reviewNote: "Demo submission only. No token transfer occurred.",
     },
   });
   await audit({
@@ -121,5 +122,5 @@ export async function submitTrainingReserveInstruction(fd: FormData) {
     partnerId: partner.id,
     meta: { training: true, noLiveFunds: true, simulatedReference },
   });
-  finish("/partner/deposit", "notice", "Simulated reserve submitted for operator activation. No funds moved.");
+  finish("/partner/deposit", "notice", "Demo reserve submitted for operator confirmation. No funds moved.");
 }

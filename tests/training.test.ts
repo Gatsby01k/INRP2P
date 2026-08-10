@@ -47,10 +47,18 @@ test("training partner defaults to the reserved video identity", () => {
 
 test("every training order respects its payment-rail amount band", () => {
   const orders = [...TRAINING_QUEUE_ORDERS, ...TRAINING_HISTORY_ORDERS];
-  assert.equal(orders.length, 16);
+  assert.equal(orders.length, 30);
   assert.equal(orders.every(trainingOrderFitsRail), true);
   assert.equal(orders.some((order) => order.rail === "UPI"), true);
   assert.equal(orders.some((order) => order.rail === "IMPS"), true);
   assert.equal(orders.some((order) => order.rail === "NEFT"), true);
   assert.equal(orders.some((order) => order.rail === "RTGS"), true);
+});
+
+test("demo operating figures remain deterministic and commercially plausible", () => {
+  assert.equal(TRAINING_HISTORY_ORDERS.length, 24);
+  assert.equal(TRAINING_HISTORY_ORDERS.reduce((sum, order) => sum + order.amount, 0), 1_995_947);
+  assert.equal(TRAINING_HISTORY_ORDERS.filter((order) => order.dayAgo === 0).reduce((sum, order) => sum + order.amount, 0), 136_598);
+  assert.equal(TRAINING_QUEUE_ORDERS.length, 6);
+  assert.equal(TRAINING_QUEUE_ORDERS.reduce((sum, order) => sum + order.amount, 0), 568_399);
 });

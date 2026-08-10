@@ -90,7 +90,7 @@ export async function createPartnerDeposit(fd: FormData) {
   const user = await requireRole("PARTNER");
   if (!user.partner) redirect("/login");
   if (isTrainingAccountEmail(user.email)) {
-    finish(DEPOSIT_PATH, "error", "Training accounts cannot create live wallet instructions. Use the simulated reserve workflow.");
+    finish(DEPOSIT_PATH, "error", "Demo accounts cannot create live wallet instructions. Use the demo reserve workflow.");
   }
   const selectedLevel = partnerProgramLevel(text(fd, "programLevel"));
   const requestedOrder = text(fd, "sourceOrder");
@@ -183,7 +183,7 @@ export async function submitPartnerDepositTransaction(fd: FormData) {
   const user = await requireRole("PARTNER");
   if (!user.partner) redirect("/login");
   if (isTrainingAccountEmail(user.email)) {
-    finish(DEPOSIT_PATH, "error", "Training accounts cannot submit live blockchain transactions.");
+    finish(DEPOSIT_PATH, "error", "Demo accounts cannot submit live blockchain transactions.");
   }
   const depositId = text(fd, "depositId");
   const transactionHash = normalizeDepositTxHash(text(fd, "transactionHash"));
@@ -250,7 +250,7 @@ export async function reviewPartnerDeposit(fd: FormData) {
   });
   if (!deposit) finish(ADMIN_PATH, "error", "Deposit not found.");
   if (isTrainingAccountEmail(deposit.partner.user.email)) {
-    finish(ADMIN_PATH, "error", "Training reserve records can only be advanced from Training Studio.");
+    finish(ADMIN_PATH, "error", "Demo reserve records can only be advanced from Demo Operations.");
   }
 
   const now = new Date();
