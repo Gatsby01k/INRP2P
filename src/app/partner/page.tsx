@@ -6,6 +6,7 @@ import { EmptyState, FormError, PageHeader, StatusBadge } from "@/components/ui"
 import { NoteComposer, NoteList } from "@/components/workspace/records";
 import { requireRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { logError } from "@/lib/error-log";
 import { directionLabel, fmtDateTime } from "@/lib/format";
 import { inr, processingTypeLabel } from "@/lib/processing";
 
@@ -30,6 +31,36 @@ type NextAction = {
   tone: "gold" | "emerald" | "rose";
 };
 
+async function loadProcessingSummary(partnerId: string, today: Date) {
+  const [account, rails, deposits, orders, completedToday] = await Promise.all([
+    db.partnerProcessingAccount.findUnique({ where: { partnerId } }),
+    db.partnerPaymentRail.findMany({
+      where: { partnerId },
+      select: { status: true },
+    }),
+    db.partnerDeposit.findMany({
+      where: { partnerId, status: "CONFIRMED" },
+      select: { amount: true, actualAmount: true },
+    }),
+    db.processingOrder.findMany({
+      where: { partnerId },
+      include: { company: { select: { companyName: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 12,
+    }),
+    db.processingOrder.findMany({
+      where: {
+        partnerId,
+        status: "COMPLETED",
+        completedAt: { gte: today },
+      },
+      select: { amountInr: true, partnerFeeInr: true },
+    }),
+  ]);
+
+  return { account, rails, deposits, orders, completedToday };
+}
+
 export default async function PartnerHomePage({
   searchParams,
 }: {
@@ -42,67 +73,69 @@ export default async function PartnerHomePage({
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  const [partner, completedToday] = await Promise.all([
-    db.partnerProfile.findUnique({
-      where: { id: user.partner.id },
-      include: {
-        verificationCases: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          include: { checks: true },
-        },
-        processingAccount: true,
-        paymentRails: { select: { status: true } },
-        deposits: {
-          where: { status: "CONFIRMED" },
-          select: { amount: true, actualAmount: true },
-        },
-        processingOrders: {
-          include: { company: { select: { companyName: true } } },
-          orderBy: { createdAt: "desc" },
-          take: 12,
-        },
-        matches: {
-          where: { releasedToPartner: true },
-          include: { request: true },
-          orderBy: { createdAt: "desc" },
-          take: 3,
-        },
-        notesList: {
-          where: { visibility: "PARTNER" },
-          orderBy: { createdAt: "desc" },
-          take: 4,
-        },
+  const partner = await db.partnerProfile.findUnique({
+    where: { id: user.partner.id },
+    include: {
+      verificationCases: {
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: { checks: true },
       },
-    }),
-    db.processingOrder.findMany({
-      where: {
-        partnerId: user.partner.id,
-        status: "COMPLETED",
-        completedAt: { gte: today },
+      matches: {
+        where: { releasedToPartner: true },
+        include: { request: true },
+        orderBy: { createdAt: "desc" },
+        take: 3,
       },
-      select: { amountInr: true, partnerFeeInr: true },
-    }),
-  ]);
+      notesList: {
+        where: { visibility: "PARTNER" },
+        orderBy: { createdAt: "desc" },
+        take: 4,
+      },
+    },
+  });
 
   if (!partner) redirect("/login");
 
+  let processing: Awaited<ReturnType<typeof loadProcessingSummary>> = {
+    account: null,
+    rails: [],
+    deposits: [],
+    orders: [],
+    completedToday: [],
+  };
+  let processingUnavailable = false;
+
+  try {
+    processing = await loadProcessingSummary(partner.id, today);
+  } catch (cause) {
+    processingUnavailable = true;
+    await logError({
+      error: cause,
+      source: "page:/partner:processing-summary",
+      severity: "ERROR",
+      url: "/partner",
+      userId: user.id,
+      meta: { partnerId: partner.id },
+    });
+  }
+
   const verification = partner.verificationCases[0] ?? null;
   const approved = partner.status === "VERIFIED" || partner.status === "LIMITED";
-  const activeRailCount = partner.paymentRails.filter((rail) => rail.status === "ACTIVE").length;
-  const confirmedReserve = partner.deposits.reduce(
+  const activeRailCount = processing.rails.filter((rail) => rail.status === "ACTIVE").length;
+  const confirmedReserve = processing.deposits.reduce(
     (sum, deposit) => sum + Number((deposit.actualAmount ?? deposit.amount).toString()),
     0,
   );
-  const processingEnabled = Boolean(partner.processingAccount?.enabled);
-  const activeOrders = partner.processingOrders.filter((order) =>
+  const processingEnabled = !processingUnavailable && Boolean(processing.account?.enabled);
+  const activeOrders = processing.orders.filter((order) =>
     ["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"].includes(order.status),
   );
-  const completedVolumeToday = completedToday.reduce(
+  const completedVolumeToday = processing.completedToday.reduce(
     (sum, order) => sum + Number(order.amountInr),
     0,
   );
-  const earnedToday = completedToday.reduce(
+  const earnedToday = processing.completedToday.reduce(
     (sum, order) => sum + Number(order.partnerFeeInr),
     0,
   );
@@ -141,6 +174,15 @@ export default async function PartnerHomePage({
       href: "/partner/verification",
       label: "Open verification",
       tone: "gold",
+    };
+  } else if (processingUnavailable) {
+    nextAction = {
+      eyebrow: "Order desk unavailable",
+      title: "Your partner profile is still safe",
+      body: "We could not load live order status just now. Retry the workspace; if it continues, operations has the server reference and can resolve it without another application.",
+      href: "/partner",
+      label: "Retry workspace",
+      tone: "rose",
     };
   } else if (confirmedReserve <= 0) {
     nextAction = {
@@ -252,9 +294,9 @@ export default async function PartnerHomePage({
       {processingEnabled ? (
         <section className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <div className="partner-stat"><span>Active orders</span><strong>{activeOrders.length}</strong><small>Need action or confirmation</small></div>
-          <div className="partner-stat"><span>Completed today</span><strong>{completedToday.length}</strong><small>{inr(completedVolumeToday)} processed</small></div>
+          <div className="partner-stat"><span>Completed today</span><strong>{processing.completedToday.length}</strong><small>{inr(completedVolumeToday)} processed</small></div>
           <div className="partner-stat"><span>Fee today</span><strong>{inr(earnedToday)}</strong><small>From completed orders</small></div>
-          <div className="partner-stat"><span>Free INR limit</span><strong>{partner.processingAccount ? inr(partner.processingAccount.approvedLimitInr.minus(partner.processingAccount.lockedExposureInr)) : "—"}</strong><small>{inr(partner.processingAccount?.lockedExposureInr ?? 0)} currently locked</small></div>
+          <div className="partner-stat"><span>Free INR limit</span><strong>{processing.account ? inr(processing.account.approvedLimitInr.minus(processing.account.lockedExposureInr)) : "—"}</strong><small>{inr(processing.account?.lockedExposureInr ?? 0)} currently locked</small></div>
         </section>
       ) : null}
 

@@ -7,12 +7,46 @@ import { EmptyState, Field, PageHeader, Stat, StatusBadge } from "@/components/u
 import { Flash } from "@/components/workspace/flash";
 import { requireVerifiedRole } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { logError } from "@/lib/error-log";
 import { fmtDateTime } from "@/lib/format";
 import { bpsLabel, inr, paymentRailLabel, processingTypeLabel } from "@/lib/processing";
 
 export const metadata: Metadata = { title: "Orders" };
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+
+async function loadPartnerProcessingDesk(partnerId: string, now: Date, today: Date) {
+  const [account, rails, deposits, mine, completedToday, settlements, connections] = await Promise.all([
+    db.partnerProcessingAccount.findUnique({ where: { partnerId } }),
+    db.partnerPaymentRail.findMany({ where: { partnerId }, orderBy: [{ status: "asc" }, { createdAt: "desc" }] }),
+    db.partnerDeposit.findMany({ where: { partnerId, status: "CONFIRMED" }, select: { amount: true, actualAmount: true } }),
+    db.processingOrder.findMany({ where: { partnerId }, include: { company: true }, orderBy: { createdAt: "desc" }, take: 100 }),
+    db.processingOrder.findMany({ where: { partnerId, status: "COMPLETED", completedAt: { gte: today } }, select: { type: true, amountInr: true, partnerFeeInr: true } }),
+    db.processingSettlement.findMany({ where: { partnerId }, include: { company: true, _count: { select: { orders: true } } }, orderBy: { createdAt: "desc" }, take: 30 }),
+    db.companyPartnerConnection.findMany({ where: { partnerId, status: "ACTIVE" }, select: { organization: { select: { companyProfileId: true } } } }),
+  ]);
+
+  const activeRails = rails.filter((rail) => rail.status === "ACTIVE");
+  const railTypes = [...new Set(activeRails.map((rail) => rail.type))];
+  const availableLimit = account ? account.approvedLimitInr.minus(account.lockedExposureInr) : null;
+  const connectedCompanyIds = connections.map((connection) => connection.organization.companyProfileId);
+  const queue = account?.enabled && availableLimit?.gt(0)
+    ? await db.processingOrder.findMany({
+        where: {
+          status: "AVAILABLE",
+          companyId: { in: connectedCompanyIds },
+          expiresAt: { gt: now },
+          amountInr: { lte: availableLimit },
+          OR: [{ type: "PAY_OUT" }, { type: "PAY_IN", requestedRail: { in: railTypes } }],
+        },
+        include: { company: { select: { id: true } } },
+        orderBy: [{ createdAt: "asc" }],
+        take: 50,
+      })
+    : [];
+
+  return { account, rails, deposits, mine, completedToday, settlements, activeRails, availableLimit, queue };
+}
 
 export default async function PartnerProcessingPage({
   searchParams,
@@ -26,34 +60,39 @@ export default async function PartnerProcessingPage({
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  const [account, rails, deposits, mine, completedToday, settlements, connections] = await Promise.all([
-    db.partnerProcessingAccount.findUnique({ where: { partnerId: user.partner.id } }),
-    db.partnerPaymentRail.findMany({ where: { partnerId: user.partner.id }, orderBy: [{ status: "asc" }, { createdAt: "desc" }] }),
-    db.partnerDeposit.findMany({ where: { partnerId: user.partner.id, status: "CONFIRMED" }, select: { amount: true, actualAmount: true } }),
-    db.processingOrder.findMany({ where: { partnerId: user.partner.id }, include: { company: true }, orderBy: { createdAt: "desc" }, take: 100 }),
-    db.processingOrder.findMany({ where: { partnerId: user.partner.id, status: "COMPLETED", completedAt: { gte: today } }, select: { type: true, amountInr: true, partnerFeeInr: true } }),
-    db.processingSettlement.findMany({ where: { partnerId: user.partner.id }, include: { company: true, _count: { select: { orders: true } } }, orderBy: { createdAt: "desc" }, take: 30 }),
-    db.companyPartnerConnection.findMany({ where: { partnerId: user.partner.id, status: "ACTIVE" }, select: { organization: { select: { companyProfileId: true } } } }),
-  ]);
+  let desk: Awaited<ReturnType<typeof loadPartnerProcessingDesk>>;
+  try {
+    desk = await loadPartnerProcessingDesk(user.partner.id, now, today);
+  } catch (cause) {
+    await logError({
+      error: cause,
+      source: "page:/partner/processing",
+      severity: "FATAL",
+      url: "/partner/processing",
+      userId: user.id,
+      meta: { partnerId: user.partner.id },
+    });
 
-  const activeRails = rails.filter((rail) => rail.status === "ACTIVE");
-  const railTypes = [...new Set(activeRails.map((rail) => rail.type))];
-  const availableLimit = account ? account.approvedLimitInr.minus(account.lockedExposureInr) : null;
-  const connectedCompanyIds = connections.map((connection) => connection.organization.companyProfileId);
-  const queue = account?.enabled && availableLimit?.gt(0)
-    ? (await db.processingOrder.findMany({
-        where: {
-          status: "AVAILABLE",
-          companyId: { in: connectedCompanyIds },
-          expiresAt: { gt: now },
-          amountInr: { lte: availableLimit },
-          OR: [{ type: "PAY_OUT" }, { type: "PAY_IN", requestedRail: { in: railTypes } }],
-        },
-        include: { company: { select: { id: true } } },
-        orderBy: [{ createdAt: "asc" }],
-        take: 50,
-      }))
-    : [];
+    return (
+      <>
+        <PageHeader title="Orders" sub="Your processing workspace is temporarily unavailable." />
+        <Flash notice={query.notice} error={query.error} />
+        <section className="card p-6 sm:p-8">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-rose-600">Temporary server issue</p>
+          <h2 className="mt-2 text-lg font-semibold text-slate-900">Your profile and application were not affected</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            Live order data could not be loaded. Operations has received the technical reference automatically. Retry shortly or return to your partner home.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Link href="/partner/processing" className="btn btn-gold btn-sm">Retry orders</Link>
+            <Link href="/partner" className="btn btn-ghost btn-sm">Partner home</Link>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  const { account, rails, deposits, mine, completedToday, settlements, activeRails, availableLimit, queue } = desk;
   const reserve = deposits.reduce((sum, deposit) => sum + Number((deposit.actualAmount ?? deposit.amount).toString()), 0);
   const activeOrders = mine.filter((order) => ["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"].includes(order.status));
   const orderHistory = mine.filter((order) => !["ASSIGNED", "PAYMENT_MARKED", "PAYOUT_SENT", "DISPUTED"].includes(order.status));
