@@ -10,6 +10,7 @@ import { companyUsdtTrc20Address } from "@/lib/deposit-wallet";
 import { ensurePartnerDepositLedger } from "@/lib/deposit-ledger";
 import { db } from "@/lib/db";
 import { notify } from "@/lib/notify";
+import { partnerProgramLevel } from "@/lib/partner-program";
 import { createReference } from "@/lib/secure-token";
 
 const DEPOSIT_PATH = "/partner/deposit";
@@ -20,9 +21,18 @@ function text(fd: FormData, key: string) {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function finish(path: string, kind: "notice" | "error", message: string): never {
+function finish(
+  path: string,
+  kind: "notice" | "error",
+  message: string,
+  extra?: Record<string, string | undefined>,
+): never {
   revalidatePath(path);
-  redirect(`${path}?${kind}=${encodeURIComponent(message)}`);
+  const query = new URLSearchParams({ [kind]: message });
+  for (const [key, value] of Object.entries(extra ?? {})) {
+    if (value) query.set(key, value);
+  }
+  redirect(`${path}?${query.toString()}`);
 }
 
 function decimalAmount(raw: string): Prisma.Decimal | null {
@@ -39,18 +49,50 @@ async function notifyOperators(title: string, body: string) {
   })));
 }
 
+/** Record the moment a partner chooses a preview order and begins activation. */
+export async function beginPartnerActivation(fd: FormData) {
+  const user = await requireRole("PARTNER");
+  if (!user.partner) redirect("/login");
+  const selectedLevel = partnerProgramLevel(text(fd, "programLevel"));
+  const requestedOrder = text(fd, "sourceOrder");
+  const sourceOrder = /^PX-(?:IN|OUT)-\d{4}$/.test(requestedOrder) ? requestedOrder : null;
+
+  if (!sourceOrder) {
+    finish("/partner/processing", "error", "Choose an order from the preview queue to begin activation.");
+  }
+  if (["REJECTED", "SUSPENDED"].includes(user.partner.status)) {
+    finish("/partner/processing", "error", "Order activation is unavailable while this partner account is restricted.");
+  }
+
+  await audit({
+    action: "partner.activation_started",
+    entityType: "PartnerProfile",
+    entityId: user.partner.id,
+    actorId: user.id,
+    actorLabel: user.partner.displayName,
+    partnerId: user.partner.id,
+    meta: { programLevel: selectedLevel.code, sourceOrder },
+  });
+
+  redirect(`/partner/deposit?plan=${selectedLevel.code}&order=${sourceOrder}`);
+}
+
 /** Create a reserve intent against the configured company USDT-TRC20 address. */
 export async function createPartnerDeposit(fd: FormData) {
   const user = await requireRole("PARTNER");
   if (!user.partner) redirect("/login");
+  const selectedLevel = partnerProgramLevel(text(fd, "programLevel"));
+  const requestedOrder = text(fd, "sourceOrder");
+  const sourceOrder = /^PX-(?:IN|OUT)-\d{4}$/.test(requestedOrder) ? requestedOrder : undefined;
+  const activationQuery = { plan: selectedLevel.code, order: sourceOrder };
   if (["REJECTED", "SUSPENDED"].includes(user.partner.status)) {
-    finish(DEPOSIT_PATH, "error", "Deposits are unavailable while this partner account is restricted.");
+    finish(DEPOSIT_PATH, "error", "Deposits are unavailable while this partner account is restricted.", activationQuery);
   }
 
   const amount = decimalAmount(text(fd, "amount"));
-  if (!amount) finish(DEPOSIT_PATH, "error", "Enter a USDT amount from 10 to 1,000,000 with up to 6 decimals.");
+  if (!amount) finish(DEPOSIT_PATH, "error", "Enter a USDT amount from 10 to 1,000,000 with up to 6 decimals.", activationQuery);
   const destinationAddress = companyUsdtTrc20Address();
-  if (!destinationAddress) finish(DEPOSIT_PATH, "error", "The company USDT-TRC20 wallet is not configured. Do not send funds yet.");
+  if (!destinationAddress) finish(DEPOSIT_PATH, "error", "The company USDT-TRC20 wallet is not configured. Do not send funds yet.", activationQuery);
 
   await ensurePartnerDepositLedger();
 
@@ -62,7 +104,7 @@ export async function createPartnerDeposit(fd: FormData) {
     where: { partnerId: user.partner.id, status: { in: ["AWAITING_PAYMENT", "CONFIRMING"] } },
   });
   if (openInstructions >= 3) {
-    finish(DEPOSIT_PATH, "error", "You already have three active deposit instructions. Complete or wait for one to expire.");
+    finish(DEPOSIT_PATH, "error", "You already have three active deposit instructions. Complete or wait for one to expire.", activationQuery);
   }
 
   const deposit = await db.partnerDeposit.create({
@@ -83,9 +125,17 @@ export async function createPartnerDeposit(fd: FormData) {
     actorId: user.id,
     actorLabel: user.partner.displayName,
     partnerId: user.partner.id,
-    meta: { reference: deposit.reference, amount: amount.toString(), network: "TRC20", provider: "DIRECT_TRC20", destinationAddress },
+    meta: {
+      reference: deposit.reference,
+      amount: amount.toString(),
+      network: "TRC20",
+      provider: "DIRECT_TRC20",
+      destinationAddress,
+      programLevel: selectedLevel.code,
+      sourceOrder,
+    },
   });
-  finish(DEPOSIT_PATH, "notice", "Deposit instructions created. Send the exact amount, then submit the transaction hash.");
+  finish(DEPOSIT_PATH, "notice", "Reserve instruction created. Send the exact amount, then submit the transaction hash.", activationQuery);
 }
 
 /** Partner reports the immutable on-chain transaction for operator review. */

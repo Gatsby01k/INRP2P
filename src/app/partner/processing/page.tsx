@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { claimProcessingOrder, createPaymentRail, partnerDisputeSettlement, updatePaymentRailStatus } from "@/app/actions/processing";
+import { PartnerOrderPreview } from "@/components/processing/partner-order-preview";
 import { SubmitButton } from "@/components/submit-button";
 import { EmptyState, Field, PageHeader, Stat, StatusBadge } from "@/components/ui";
 import { Flash } from "@/components/workspace/flash";
@@ -9,6 +10,7 @@ import { requireVerifiedRole } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logError } from "@/lib/error-log";
 import { fmtDateTime } from "@/lib/format";
+import { partnerProgramLevel } from "@/lib/partner-program";
 import { bpsLabel, inr, paymentRailLabel, processingTypeLabel } from "@/lib/processing";
 
 export const metadata: Metadata = { title: "Orders" };
@@ -51,11 +53,52 @@ async function loadPartnerProcessingDesk(partnerId: string, now: Date, today: Da
 export default async function PartnerProcessingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ notice?: string; error?: string }>;
+  searchParams: Promise<{ notice?: string; error?: string; plan?: string }>;
 }) {
   const user = await requireVerifiedRole("PARTNER");
   if (!user.partner) redirect("/login");
   const query = await searchParams;
+  const selectedLevel = partnerProgramLevel(query.plan);
+
+  let confirmedReserve = false;
+  let activationState: "NOT_STARTED" | "AWAITING_PAYMENT" | "UNDER_REVIEW" = "NOT_STARTED";
+  try {
+    const reserveEntries = await db.partnerDeposit.findMany({
+      where: { partnerId: user.partner.id },
+      select: { status: true },
+      orderBy: { createdAt: "desc" },
+      take: 10,
+    });
+    confirmedReserve = reserveEntries.some((entry) => entry.status === "CONFIRMED");
+    activationState = reserveEntries.some((entry) => entry.status === "CONFIRMING")
+      ? "UNDER_REVIEW"
+      : reserveEntries.some((entry) => entry.status === "AWAITING_PAYMENT")
+        ? "AWAITING_PAYMENT"
+        : "NOT_STARTED";
+  } catch (cause) {
+    await logError({
+      error: cause,
+      source: "page:/partner/processing:reserve-gate",
+      severity: "ERROR",
+      url: "/partner/processing",
+      userId: user.id,
+      meta: { partnerId: user.partner.id },
+    });
+  }
+
+  if (!confirmedReserve) {
+    return (
+      <>
+        <PageHeader
+          title="Orders"
+          sub="Explore the order workflow, choose your operating level and activate your desk from any sample order."
+        />
+        <Flash notice={query.notice} error={query.error} />
+        <PartnerOrderPreview selectedLevel={selectedLevel} activationState={activationState} />
+      </>
+    );
+  }
+
   const now = new Date();
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);

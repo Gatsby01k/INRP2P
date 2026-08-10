@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  PARTNER_PROGRAM_LEVELS,
+  partnerOrderCommission,
+  partnerProgramLevel,
+} from "../src/lib/partner-program";
+
+test("partner program defaults safely to Starter", () => {
+  assert.equal(partnerProgramLevel().code, "STARTER");
+  assert.equal(partnerProgramLevel("unknown").code, "STARTER");
+  assert.equal(partnerProgramLevel("pro").code, "PRO");
+});
+
+test("partner commission preview follows the selected level", () => {
+  const amount = 100_000;
+  assert.deepEqual(
+    PARTNER_PROGRAM_LEVELS.map((level) => partnerOrderCommission(amount, level)),
+    [1_000, 1_250, 1_500, 2_000],
+  );
+});

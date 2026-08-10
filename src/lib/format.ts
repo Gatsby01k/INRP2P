@@ -67,6 +67,8 @@ export function auditLabel(action: string, meta?: unknown): string {
       return `Partner status: ${from} → ${to}`;
     case "partner.profile_updated":
       return "Partner updated operational profile";
+    case "partner.activation_started":
+      return `Partner activation started${m.programLevel ? ` — ${statusLabel(String(m.programLevel))}` : ""}${m.sourceOrder ? ` · ${String(m.sourceOrder)}` : ""}`;
     case "match.created":
       return `Match created${m.partnerName ? ` — ${String(m.partnerName)}` : ""}`;
     case "match.status_changed":
