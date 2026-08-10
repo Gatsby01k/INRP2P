@@ -13,11 +13,11 @@ export async function SiteNav() {
       <div className="fin-nav-inner">
         <div className="fin-nav-brand"><Logo /><span>Private network</span></div>
         <nav className="fin-nav-links" aria-label="Primary navigation">
-          <Link href="/#product">Product</Link>
-          <Link href="/#operating-model">Operating model</Link>
-          <Link href="/#controls">Controls</Link>
+          <Link href="/#product">For partners</Link>
+          <Link href="/#operating-model">Workflow</Link>
+          <Link href="/#controls">Trust & controls</Link>
+          <Link href="/request">For companies</Link>
           <Link href="/how-it-works">How it works</Link>
-          <Link href="/careers">Careers</Link>
         </nav>
         <div className="fin-nav-actions">
           {session ? (
@@ -27,7 +27,7 @@ export async function SiteNav() {
           ) : (
             <Link href="/login" className="fin-nav-login">Log in</Link>
           )}
-          <Link href="/request" className="fin-nav-cta">Request access</Link>
+          <Link href="/apply" className="fin-nav-cta">Join as a partner</Link>
         </div>
       </div>
     </header>

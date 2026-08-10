@@ -11,6 +11,7 @@ import {
   runSlaWatchdog,
   runStaleSuggestionWatchdog,
   runNetworkMaintenance,
+  runProcessingOrderExpiryWatchdog,
 } from "@/lib/watchdogs";
 
 // Vercel Cron hits this on schedule (see vercel.json). Protected by
@@ -25,7 +26,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const [sla, revenue, followUp, uninvoiced, retainer, staleSuggestions, introReminders, duplicateRisk, referralRewards, networkMaintenance] =
+  const [sla, revenue, followUp, uninvoiced, retainer, staleSuggestions, introReminders, duplicateRisk, referralRewards, networkMaintenance, processingExpiry] =
     await Promise.all([
     runSlaWatchdog().catch(async (err) => {
       await logError({ error: err, source: "cron:runSlaWatchdog", severity: "ERROR" });
@@ -67,6 +68,10 @@ export async function GET(req: NextRequest) {
       await logError({ error: err, source: "cron:runNetworkMaintenance", severity: "ERROR" });
       return { error: true };
     }),
+    runProcessingOrderExpiryWatchdog().catch(async (err) => {
+      await logError({ error: err, source: "cron:runProcessingOrderExpiryWatchdog", severity: "ERROR" });
+      return { checked: 0, changed: 0, error: true };
+    }),
   ]);
 
   return NextResponse.json({
@@ -81,6 +86,7 @@ export async function GET(req: NextRequest) {
     duplicateRisk,
     referralRewards,
     networkMaintenance,
+    processingExpiry,
     ranAt: new Date().toISOString(),
   });
 }

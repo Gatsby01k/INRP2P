@@ -8,66 +8,66 @@ const stages = [
   {
     code: "01",
     title: "Review",
-    caption: "A counterparty becomes usable only after the evidence becomes clear.",
-    leftLabel: "Trust passport",
-    leftValue: "Human decision",
+    caption: "A partner workspace is created first. Live order access follows a human review.",
+    leftLabel: "Partner application",
+    leftValue: "Private review",
     rows: [
-      ["Entity & ownership", "Reviewed"],
-      ["Banking coverage", "Reviewed"],
-      ["Sanctions screening", "Clear"],
-      ["Wallet-risk evidence", "Recorded"],
+      ["Operator identity", "Recorded"],
+      ["Operating experience", "Reviewed"],
+      ["Supported flows", "Reviewed"],
+      ["Declared capacity", "Reviewed"],
     ],
-    result: "Eligible for network access",
+    result: "Partner decision recorded",
   },
   {
     code: "02",
-    title: "Signal",
-    caption: "Only current operating capacity is visible. Stale promises expire.",
-    leftLabel: "Capacity window",
-    leftValue: "Time-bound signal",
+    title: "Activate",
+    caption: "Reserve, payment accounts and the INR order limit are enabled separately.",
+    leftLabel: "Operating setup",
+    leftValue: "Controlled activation",
     rows: [
-      ["Direction", "INR → USDT"],
-      ["Settlement rail", "Bilateral"],
-      ["Volume band", "Confirmed"],
-      ["Availability", "Current"],
+      ["Partner review", "Approved"],
+      ["Operating reserve", "Confirmed"],
+      ["UPI / bank rails", "Approved"],
+      ["INR order limit", "Enabled"],
     ],
-    result: "Capacity is route-ready",
+    result: "Desk ready for eligible orders",
   },
   {
     code: "03",
-    title: "Route",
-    caption: "Every shortlist is explainable and requirement-specific.",
-    leftLabel: "Company requirement",
-    leftValue: "Controlled routing",
+    title: "Process",
+    caption: "Every assignment, bank reference and confirmation belongs to one order.",
+    leftLabel: "Eligible merchant order",
+    leftValue: "Evidence-led processing",
     rows: [
-      ["Corridor eligibility", "Match"],
-      ["Live capacity", "Match"],
-      ["Network permission", "Match"],
-      ["Risk threshold", "Match"],
+      ["Merchant connection", "Active"],
+      ["Available INR limit", "Checked"],
+      ["Payment rail", "Selected"],
+      ["UTR / confirmation", "Recorded"],
     ],
-    result: "Qualified shortlist created",
+    result: "Order completed with history",
   },
   {
     code: "04",
-    title: "Introduce",
-    caption: "Identity is released deliberately. Settlement stays outside INRP2P.",
-    leftLabel: "Qualified match",
-    leftValue: "Human-controlled release",
+    title: "Settle",
+    caption: "Completed orders and partner fees are reconciled before external settlement is recorded.",
+    leftLabel: "Completed order batch",
+    leftValue: "Reconciled settlement",
     rows: [
-      ["Identity release", "Approved"],
-      ["Commercial terms", "Bilateral"],
-      ["Movement of funds", "Direct"],
-      ["Decision record", "Written"],
+      ["Gross pay-in", "Calculated"],
+      ["Gross pay-out", "Calculated"],
+      ["Partner fee", "Calculated"],
+      ["External reference", "Recorded"],
     ],
-    result: "Counterparties proceed directly",
+    result: "Settlement history complete",
   },
 ] as const;
 
 const launchStages = [
-  ["01", "Review", "Counterparty evidence"],
-  ["02", "Signal", "Current capacity"],
-  ["03", "Route", "Explainable match"],
-  ["04", "Introduce", "Controlled release"],
+  ["01", "Review", "Partner evidence"],
+  ["02", "Activate", "Reserve and rails"],
+  ["03", "Process", "Order evidence"],
+  ["04", "Settle", "Reconciled batch"],
 ] as const;
 
 export function LiquidityOrbit() {
@@ -156,7 +156,7 @@ export function LiquidityOrbit() {
   }, []);
 
   return (
-    <div ref={rootRef} className="v3-orbit" aria-label="INRP2P verified liquidity network">
+      <div ref={rootRef} className="v3-orbit" aria-label="INRP2P controlled INR processing network">
       <div className="v3-orbit-halo v3-orbit-halo-a" aria-hidden="true" />
       <div className="v3-orbit-halo v3-orbit-halo-b" aria-hidden="true" />
       <div className="v3-orbit-rail v3-orbit-rail-a" aria-hidden="true"><i /><i /><i /></div>
@@ -246,9 +246,9 @@ export function NetworkConsole() {
       </div>
 
       <div className="v3-console-foot">
-        <span>Every decision is explainable</span>
-        <span>No custody of deal funds</span>
-        <span>No execution</span>
+          <span>Every order has an audit trail</span>
+          <span>Bank rails stay partner-owned</span>
+          <span>Settlement remains external</span>
       </div>
     </div>
   );

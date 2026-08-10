@@ -108,6 +108,7 @@ export function RequestForm({ loggedInCompany }: { loggedInCompany?: string }) {
   const [localErrors, setLocalErrors] = useState<Record<string, string>>({});
   const [draftSaved, setDraftSaved] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [turnstileEpoch, setTurnstileEpoch] = useState(0);
 
   const fields = stepFields(loggedIn);
   const labels = STEP_LABELS_FULL.slice(0, fields.length);
@@ -149,6 +150,10 @@ export function RequestForm({ loggedInCompany }: { loggedInCompany?: string }) {
     const idx = fields.findIndex((names) => names.some((n) => errs[n]));
     if (idx >= 0) setStep(idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  useEffect(() => {
+    if (state.error) setTurnstileEpoch((value) => value + 1);
   }, [state]);
 
   function persistDraft(fd: FormData) {
@@ -479,7 +484,7 @@ export function RequestForm({ loggedInCompany }: { loggedInCompany?: string }) {
             </div>
           ) : null}
 
-          <TurnstileField />
+          {step === lastStep ? <TurnstileField resetKey={turnstileEpoch} /> : null}
           <FormError message={state.error} />
 
           {/* Navigation */}

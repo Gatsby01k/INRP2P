@@ -16,13 +16,11 @@ export default async function PartnerLayout({
       badgeTone="emerald"
       userLine={user.email}
       nav={[
-        { href: "/partner", label: "Overview", exact: true },
-        { href: "/partner/profile", label: "Profile & capacity" },
-        { href: "/partner/capacity", label: "Capacity pulse" },
-        { href: "/partner/offers", label: "Offers" },
-        { href: "/partner/network", label: "Company networks" },
-        { href: "/partner/verification", label: "Trust Passport" },
-        { href: "/partner/deposit", label: "USDT reserve" },
+        { href: "/partner", label: "Home", exact: true },
+        { href: "/partner/processing", label: "Orders" },
+        { href: "/partner/capacity", label: "Availability" },
+        { href: "/partner/verification", label: "Verification" },
+        { href: "/partner/profile", label: "Profile" },
         { href: "/account/security", label: "Security" },
       ]}
     >

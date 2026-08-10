@@ -6,25 +6,25 @@ import { SiteFooter } from "@/components/site/footer";
 import { SiteNav } from "@/components/site/nav";
 
 const proof = [
-  ["3", "INR corridors"],
-  ["24–48h", "First response"],
-  ["Human-led", "Network decisions"],
-  ["Zero", "Custody or execution"],
+  ["Pay-in", "Merchant collections"],
+  ["Pay-out", "Payout instructions"],
+  ["UTR", "Evidence recorded"],
+  ["Direct", "External settlement"],
 ];
 
 const corridors = [
-  ["01", "INR → USDT", "Verified INR-side capacity for companies with a defined stablecoin settlement requirement."],
-  ["02", "USDT → INR", "Reviewed counterparties and current operating coverage for INR liquidity requirements."],
-  ["03", "INR payouts", "Qualified operating partners for controlled business payout workflows."],
+  ["01", "Pay-in orders", "Choose an approved collection account, monitor the payment window and record customer-payment evidence."],
+  ["02", "Pay-out orders", "See beneficiary details only after assignment, make the transfer directly and submit the UTR for review."],
+  ["03", "Settlements", "Reconcile completed orders, partner fees and the final INR position against an external settlement reference."],
 ];
 
 const evidence = [
-  ["Entity & ownership", "Human review", "The counterparty behind the profile is documented before access."],
-  ["Banking coverage", "Evidence recorded", "Operating rails and declared coverage are reviewed, not inferred."],
-  ["Capacity", "Time-bound", "Availability is a current signal with an expiry, not a permanent claim."],
-  ["Routing", "Explainable", "Every shortlist is tied to the actual requirement and network rules."],
-  ["Introduction", "Controlled", "Identity is released only after both sides are ready to proceed."],
-  ["Settlement", "Direct", "Counterparties agree terms and move funds under their own agreements."],
+  ["Partner identity", "Human review", "The operator behind the workspace is reviewed before processing is enabled."],
+  ["Payment accounts", "Encrypted & reviewed", "Full UPI and bank destinations are encrypted; only approved rails can receive orders."],
+  ["Operating reserve", "Confirmed", "Reserve evidence and the approved INR limit are recorded separately and visibly."],
+  ["Order assignment", "Limit controlled", "Taking an order locks the required exposure and prevents a second partner taking it."],
+  ["Payment evidence", "Time stamped", "UTRs, customer-payment marks, confirmations and disputes remain attached to the order."],
+  ["Settlement", "Reconciled", "Completed orders and fees are netted into a recorded external settlement batch."],
 ];
 
 function Arrow() {
@@ -52,19 +52,19 @@ export default function HomePage() {
           <div className="v3-hero-sticky">
             <div className="v3-hero-grid">
               <div className="v3-hero-copy">
-                <p className="v3-kicker"><span /> Private INR liquidity network</p>
-                <h1>India&apos;s liquidity,<br /><em>reviewed.</em></h1>
+                <p className="v3-kicker"><span /> Private INR processing network</p>
+                <h1>INR processing,<br /><em>under control.</em></h1>
                 <p className="v3-hero-lede">
-                  Verified counterparties, current capacity and governed introductions for INR ↔ USDT and INR payout corridors.
+                  Approved partners receive eligible merchant pay-in and pay-out orders, manage bank rails, record UTRs and reconcile settlements from one private desk.
                 </p>
                 <div className="v3-actions">
-                  <Link href="/request" className="v3-button v3-button-primary">Request company access <Arrow /></Link>
-                  <Link href="/apply" className="v3-button v3-button-quiet">Apply as liquidity partner</Link>
+                  <Link href="/apply" className="v3-button v3-button-primary">Join as processing partner <Arrow /></Link>
+                  <Link href="/request" className="v3-button v3-button-quiet">I represent a company</Link>
                 </div>
                 <div className="v3-trust-line">
-                  <span><Check /> Manual review</span>
-                  <span><Check /> Controlled introductions</span>
-                  <span><Check /> Direct settlement</span>
+                  <span><Check /> Manual partner approval</span>
+                  <span><Check /> Encrypted bank details</span>
+                  <span><Check /> No public order book</span>
                 </div>
               </div>
               <LiquidityOrbit />
@@ -83,22 +83,22 @@ export default function HomePage() {
           <div className="v3-manifesto-field" aria-hidden="true" />
           <div className="v3-shell">
             <Reveal className="v3-manifesto-grid">
-              <p className="v3-section-index">01 / Why INRP2P</p>
+              <p className="v3-section-index">01 / Built for operators</p>
               <div>
-                <p className="v3-kicker"><span /> The missing layer</p>
-                <h2>Liquidity is easy.<br /><em>Accountability is rare.</em></h2>
+                <p className="v3-kicker"><span /> A proper operating desk</p>
+                <h2>The work is serious.<br /><em>The workflow should be simple.</em></h2>
               </div>
               <div className="v3-manifesto-copy">
-                <p>INRP2P is not an exchange, an order book or another anonymous contact list.</p>
-                <p>It is the private control layer between a real requirement and a qualified counterparty: review first, introduction second, settlement direct.</p>
-                <Link href="/how-it-works">Read the operating standard <Arrow /></Link>
+                <p>Public chats mix unknown counterparties, bank details, UTRs and settlement calculations in one untracked thread.</p>
+                <p>INRP2P gives approved operators a controlled path from merchant connection to order evidence and settlement reconciliation.</p>
+                <Link href="/apply">Create your partner workspace <Arrow /></Link>
               </div>
             </Reveal>
 
             <div className="v3-principles">
-              <Reveal index={0} className="v3-principle"><span>01</span><h3>Know who is behind the capacity.</h3><p>Entity, ownership, banking coverage and risk evidence become one reusable trust record.</p></Reveal>
-              <Reveal index={1} className="v3-principle"><span>02</span><h3>Know whether capacity is current.</h3><p>Short operating windows replace stale promises and automatically disappear when they expire.</p></Reveal>
-              <Reveal index={2} className="v3-principle"><span>03</span><h3>Know why a match was made.</h3><p>Corridor, rail, volume, verification and network permission explain every shortlist.</p></Reveal>
+              <Reveal index={0} className="v3-principle"><span>01</span><h3>Apply once. Operate privately.</h3><p>Create a workspace first, then complete review, reserve and payment-account activation in a guided sequence.</p></Reveal>
+              <Reveal index={1} className="v3-principle"><span>02</span><h3>Take only eligible orders.</h3><p>The queue respects your approved limit, active bank rails, merchant connections and current availability.</p></Reveal>
+              <Reveal index={2} className="v3-principle"><span>03</span><h3>Keep a record of every rupee.</h3><p>Assignments, UTRs, confirmations, disputes, fees and settlements remain connected to one order history.</p></Reveal>
             </div>
           </div>
         </section>
@@ -106,8 +106,8 @@ export default function HomePage() {
         <section id="operating-model" className="v3-model">
           <div className="v3-shell">
             <Reveal className="v3-model-head">
-              <div><p className="v3-kicker v3-kicker-on-dark"><span /> Governed by design</p><h2>One requirement.<br /><em>One controlled route.</em></h2></div>
-              <p>Explore the four decisions that convert an unverified contact into a qualified bilateral introduction.</p>
+              <div><p className="v3-kicker v3-kicker-on-dark"><span /> One operating path</p><h2>From approval to settlement.<br /><em>No missing steps.</em></h2></div>
+              <p>See the four stages that take a partner from application to controlled INR order processing.</p>
             </Reveal>
             <Reveal threshold={0.08}><NetworkConsole /></Reveal>
           </div>
@@ -117,9 +117,9 @@ export default function HomePage() {
           <div className="v3-corridors-bg" aria-hidden="true" />
           <div className="v3-shell v3-corridors-shell">
             <Reveal className="v3-corridors-head">
-              <p className="v3-section-index">03 / Live scope</p>
-              <div><p className="v3-kicker"><span /> Three corridors</p><h2>One standard of trust,<br />across every direction.</h2></div>
-              <p>Start with the requirement. INRP2P finds the reviewed operating relationships eligible for that specific route.</p>
+              <p className="v3-section-index">03 / Partner workspace</p>
+              <div><p className="v3-kicker"><span /> The daily workflow</p><h2>Everything needed to operate,<br />nothing added for decoration.</h2></div>
+              <p>Each screen answers one question: what can I take, what needs action, and what has been settled.</p>
             </Reveal>
             <div className="v3-corridor-list">
               {corridors.map(([number, title, body], index) => (
@@ -135,8 +135,8 @@ export default function HomePage() {
           <div className="v3-shell">
             <Reveal className="v3-evidence-head">
               <div className="v3-zero">0</div>
-              <div><p className="v3-kicker"><span /> Custody position</p><h2>We control the introduction.<br /><em>Never the money.</em></h2></div>
-              <p>Automation reduces operational friction. It never turns provider output into an invisible approval or moves funds on behalf of either side.</p>
+              <div><p className="v3-kicker"><span /> Clear responsibility</p><h2>INRP2P records the workflow.<br /><em>You control the money.</em></h2></div>
+              <p>Partners and companies use their own accounts and agreements. INRP2P coordinates access, records evidence and keeps the operational history.</p>
             </Reveal>
 
             <div className="v3-ledger">
@@ -163,10 +163,10 @@ export default function HomePage() {
           <div className="v3-access-panel v3-access-partner">
             <div className="v3-access-number">P</div>
             <div>
-              <p className="v3-kicker v3-kicker-on-dark"><span /> For liquidity partners</p>
-              <h2>Make credibility operational.</h2>
-              <p>Maintain one reviewed profile, signal live capacity and receive only qualified requirements from accepted networks.</p>
-              <Link href="/apply">Apply for partner review <Arrow /></Link>
+              <p className="v3-kicker v3-kicker-on-dark"><span /> For processing partners</p>
+              <h2>Turn approved capacity into an operating desk.</h2>
+              <p>Complete review, connect payment rails, take eligible orders and track settlements without running the business from chat history.</p>
+              <Link href="/apply">Create partner workspace <Arrow /></Link>
             </div>
           </div>
         </section>
@@ -174,12 +174,12 @@ export default function HomePage() {
         <section className="v3-final">
           <div className="v3-final-rings" aria-hidden="true"><i /><i /><i /></div>
           <div className="v3-final-mark"><BrandMark size={72} /></div>
-          <p className="v3-kicker"><span /> Private access</p>
-          <h2>Put verified ground beneath<br />every INR relationship.</h2>
-          <p>Manual review. Current capacity. Controlled introductions. No custody or execution of deal funds.</p>
+          <p className="v3-kicker"><span /> Partner access</p>
+          <h2>Ready to operate INR orders<br />from one controlled desk?</h2>
+          <p>Create your workspace now. Live orders are enabled only after manual approval, reserve confirmation and payment-account review.</p>
           <div className="v3-actions">
-            <Link href="/request" className="v3-button v3-button-primary">Request access <Arrow /></Link>
-            <Link href="/how-it-works" className="v3-button v3-button-quiet">See how it works</Link>
+            <Link href="/apply" className="v3-button v3-button-primary">Join as a partner <Arrow /></Link>
+            <Link href="/how-it-works" className="v3-button v3-button-quiet">Read the operating standard</Link>
           </div>
         </section>
       </main>

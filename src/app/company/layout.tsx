@@ -18,6 +18,7 @@ export default async function CompanyLayout({
       nav={[
         { href: "/company", label: "My requests", exact: true },
         { href: "/company/new-request", label: "New request" },
+        { href: "/company/processing", label: "Merchant processing" },
         { href: "/company/network", label: "Private network" },
         { href: "/company/verification", label: "Verification" },
         { href: "/account/security", label: "Security" },

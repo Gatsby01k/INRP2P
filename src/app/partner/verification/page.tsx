@@ -11,10 +11,10 @@ export default async function PartnerVerificationPage({ searchParams }: { search
   const item = user.partner ? await db.verificationCase.findFirst({ where: { partnerId: user.partner.id }, include: { checks: true, evidence: { orderBy: { createdAt: "desc" } } }, orderBy: { createdAt: "desc" } }) : null;
 
   return <>
-    <PageHeader title="Trust Passport" sub="Complete one private verification set for controlled introductions across the INRP2P network." />
+    <PageHeader title="Verification" sub="Complete the identity and operating checks required before your partner workspace can receive live orders." />
     <Flash {...flash} />
     {!item ? <div className="card p-6">
-      <EmptyState title="Your verification is ready to begin" body="It takes about five minutes. Prepare an identity document, bank proof, wallet proof and a short verification video." />
+      <EmptyState title="Start your partner verification" body="Prepare an identity document, bank proof, reserve evidence and a short verification video. You can return if anything is missing." />
       <form action={startVerification} className="mt-4 text-center"><input type="hidden" name="subject" value="partner" /><button className="btn btn-gold">Start secure verification</button></form>
     </div> : <div className="space-y-5">
       <div className="card p-4 sm:p-5">
